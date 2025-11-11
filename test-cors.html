@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test CORS</title>
+</head>
+<body>
+    <h1>Test API Connection</h1>
+    <button onclick="testRegister()">Test Register</button>
+    <button onclick="testLogin()">Test Login</button>
+    <pre id="result"></pre>
+
+    <script>
+        async function testRegister() {
+            const result = document.getElementById('result');
+            result.textContent = 'Testing register...';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        fullName: 'Test User ' + Date.now(),
+                        email: 'test' + Date.now() + '@example.com',
+                        password: '123456'
+                    })
+                });
+
+                const data = await response.json();
+                result.textContent = 'Register Success:\n' + JSON.stringify(data, null, 2);
+            } catch (error) {
+                result.textContent = 'Register Error:\n' + error.message;
+            }
+        }
+
+        async function testLogin() {
+            const result = document.getElementById('result');
+            result.textContent = 'Testing login...';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'test@example.com',
+                        password: '123456'
+                    })
+                });
+
+                const data = await response.json();
+                result.textContent = 'Login Success:\n' + JSON.stringify(data, null, 2);
+            } catch (error) {
+                result.textContent = 'Login Error:\n' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

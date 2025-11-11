@@ -1,0 +1,132 @@
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+
+export interface RegisterData {
+  fullName: string
+  email: string
+  password: string
+}
+
+export interface LoginData {
+  email: string
+  password: string
+}
+
+export interface AuthResponse {
+  message: string
+  token: string
+  user: {
+    id: string
+    fullName: string
+    email: string
+    role: string
+  }
+}
+
+export const authAPI = {
+  register: async (data: RegisterData): Promise<AuthResponse> => {
+    const response = await fetch(`${API_URL}/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Đăng ký thất bại')
+    }
+
+    return result
+  },
+
+  login: async (data: LoginData): Promise<AuthResponse> => {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Đăng nhập thất bại')
+    }
+
+    return result
+  },
+
+  getMe: async (token: string) => {
+    const response = await fetch(`${API_URL}/auth/me`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Lỗi khi lấy thông tin người dùng')
+    }
+
+    return result
+  },
+}
+
+export const certificateAPI = {
+  upload: async (file: File, token: string) => {
+    const formData = new FormData()
+    formData.append('certificate', file)
+
+    const response = await fetch(`${API_URL}/certificates/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Lỗi khi tải lên file')
+    }
+
+    return result
+  },
+
+  getAll: async (token: string) => {
+    const response = await fetch(`${API_URL}/certificates`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Lỗi khi lấy danh sách chứng chỉ')
+    }
+
+    return result
+  },
+
+  getById: async (id: string, token: string) => {
+    const response = await fetch(`${API_URL}/certificates/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Lỗi khi lấy thông tin chứng chỉ')
+    }
+
+    return result
+  },
+}
