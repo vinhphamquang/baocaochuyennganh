@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   UsersIcon, 
   DocumentTextIcon, 
@@ -8,14 +8,37 @@ import {
   CogIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
+import toast from 'react-hot-toast'
 
 interface User {
-  id: string
+  _id: string
   name: string
   email: string
-  joinDate: string
+  createdAt: string
   certificatesProcessed: number
-  status: 'active' | 'inactive'
+  isActive: boolean
+  role: string
+}
+
+interface Certificate {
+  _id: string
+  userId: string
+  fileName: string
+  certificateType: string
+  processingStatus: string
+  createdAt: string
+  extractedData: any
+}
+
+interface Statistics {
+  totalUsers: number
+  activeUsers: number
+  totalCertificates: number
+  completedCertificates: number
+  failedCertificates: number
+  todayProcessed: number
+  successRate: number
+  certificatesByType: Array<{ _id: string; count: number }>
 }
 
 interface SystemLog {
@@ -27,60 +50,239 @@ interface SystemLog {
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'certificates' | 'logs'>('overview')
-  
-  const [users] = useState<User[]>([
-    {
-      id: '1',
-      name: 'Nguyễn Văn A',
-      email: 'nguyenvana@email.com',
-      joinDate: '2023-10-01',
-      certificatesProcessed: 15,
-      status: 'active'
-    },
-    {
-      id: '2',
-      name: 'Trần Thị B',
-      email: 'tranthib@email.com',
-      joinDate: '2023-09-15',
-      certificatesProcessed: 8,
-      status: 'active'
-    },
-    {
-      id: '3',
-      name: 'Lê Văn C',
-      email: 'levanc@email.com',
-      joinDate: '2023-08-20',
-      certificatesProcessed: 3,
-      status: 'inactive'
-    }
-  ])
+  const [users, setUsers] = useState<User[]>([])
+  const [certificates, setCertificates] = useState<Certificate[]>([])
+  const [statistics, setStatistics] = useState<Statistics | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [logs, setLogs] = useState<SystemLog[]>([])
+  const [noAuth, setNoAuth] = useState(false)
+  const [loginData, setLoginData] = useState({ email: '', password: '' })
+  const [loginLoading, setLoginLoading] = useState(false)
 
-  const [logs] = useState<SystemLog[]>([
-    {
-      id: '1',
-      timestamp: '2023-11-01 14:30:25',
-      type: 'info',
-      message: 'Người dùng nguyenvana@email.com đã tải lên chứng chỉ IELTS'
-    },
-    {
-      id: '2',
-      timestamp: '2023-11-01 14:25:10',
-      type: 'warning',
-      message: 'OCR API response time cao hơn bình thường (5.2s)'
-    },
-    {
-      id: '3',
-      timestamp: '2023-11-01 14:20:05',
-      type: 'error',
-      message: 'Lỗi xử lý file certificate_corrupted.pdf - File bị hỏng'
-    }
-  ])
+  // Fetch data từ API
+  useEffect(() => {
+    fetchData()
+  }, [])
 
-  const stats = {
-    totalUsers: users.length,
-    activeUsers: users.filter(u => u.status === 'active').length,
-    totalCertificates: users.reduce((sum, user) => sum + user.certificatesProcessed, 0),
-    todayProcessed: 12
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('token')
+      
+      if (!token) {
+        setLoading(false)
+        setNoAuth(true)
+        return
+      }
+
+      // Fetch statistics
+      const statsRes = await fetch('http://localhost:5000/api/admin/statistics', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      
+      if (statsRes.ok) {
+        const statsData = await statsRes.json()
+        setStatistics(statsData.statistics)
+      }
+
+      // Fetch users
+      const usersRes = await fetch('http://localhost:5000/api/admin/users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      
+      if (usersRes.ok) {
+        const usersData = await usersRes.json()
+        setUsers(usersData.users)
+      }
+
+      // Fetch certificates
+      const certsRes = await fetch('http://localhost:5000/api/admin/certificates', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      
+      if (certsRes.ok) {
+        const certsData = await certsRes.json()
+        setCertificates(certsData.certificates)
+      }
+
+    } catch (error) {
+      console.error('Fetch error:', error)
+      toast.error('Lỗi khi tải dữ liệu')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`http://localhost:5000/api/admin/users/${userId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ isActive: !currentStatus })
+      })
+
+      if (response.ok) {
+        toast.success(`${!currentStatus ? 'Kích hoạt' : 'Khóa'} tài khoản thành công`)
+        fetchData() // Reload data
+      } else {
+        toast.error('Lỗi khi cập nhật trạng thái')
+      }
+    } catch (error) {
+      console.error('Toggle status error:', error)
+      toast.error('Lỗi khi cập nhật trạng thái')
+    }
+  }
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('Bạn có chắc muốn xóa người dùng này?')) return
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`http://localhost:5000/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+
+      if (response.ok) {
+        toast.success('Xóa người dùng thành công')
+        fetchData()
+      } else {
+        toast.error('Lỗi khi xóa người dùng')
+      }
+    } catch (error) {
+      console.error('Delete user error:', error)
+      toast.error('Lỗi khi xóa người dùng')
+    }
+  }
+
+  // Nếu chưa đăng nhập
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoginLoading(true)
+
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginData)
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        if (data.user.role !== 'admin') {
+          toast.error('Chỉ admin mới có thể truy cập')
+          return
+        }
+        
+        localStorage.setItem('token', data.token)
+        localStorage.setItem('user', JSON.stringify(data.user))
+        toast.success('Đăng nhập thành công!')
+        window.location.reload()
+      } else {
+        toast.error(data.message || 'Đăng nhập thất bại')
+      }
+    } catch (error) {
+      console.error('Login error:', error)
+      toast.error('Lỗi kết nối')
+    } finally {
+      setLoginLoading(false)
+    }
+  }
+
+  // Nếu chưa đăng nhập
+  if (noAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 flex items-center justify-center py-12 px-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+          <div className="text-center mb-6">
+            <div className="mx-auto h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+              <CogIcon className="h-8 w-8 text-blue-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900">
+              Đăng nhập Admin
+            </h2>
+            <p className="text-gray-600 mt-2">
+              Truy cập bảng điều khiển quản trị
+            </p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                📧 Email
+              </label>
+              <input
+                type="email"
+                value={loginData.email}
+                onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900"
+                placeholder="admin@example.com"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                🔒 Mật khẩu
+              </label>
+              <input
+                type="password"
+                value={loginData.password}
+                onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900"
+                placeholder="Nhập mật khẩu"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loginLoading}
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-4 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all transform hover:scale-105 shadow-lg"
+            >
+              {loginLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+            </button>
+          </form>
+
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <p className="text-center text-sm text-gray-600 mb-3">
+              Chưa có tài khoản admin?
+            </p>
+            <a
+              href="/admin/register"
+              className="block w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-xl font-semibold hover:bg-gray-200 transition-colors text-center"
+            >
+              Đăng ký Admin
+            </a>
+          </div>
+
+          <div className="mt-4 text-center">
+            <a
+              href="/"
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              ← Về trang chủ
+            </a>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    )
   }
 
   const tabs = [
@@ -142,7 +344,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-500">Tổng người dùng</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.totalUsers}</p>
+                    <p className="text-2xl font-semibold text-gray-900">{statistics?.totalUsers || 0}</p>
                   </div>
                 </div>
               </div>
@@ -154,7 +356,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-500">Người dùng hoạt động</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.activeUsers}</p>
+                    <p className="text-2xl font-semibold text-gray-900">{statistics?.activeUsers || 0}</p>
                   </div>
                 </div>
               </div>
@@ -166,7 +368,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-500">Tổng chứng chỉ</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.totalCertificates}</p>
+                    <p className="text-2xl font-semibold text-gray-900">{statistics?.totalCertificates || 0}</p>
                   </div>
                 </div>
               </div>
@@ -178,7 +380,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-500">Hôm nay</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.todayProcessed}</p>
+                    <p className="text-2xl font-semibold text-gray-900">{statistics?.todayProcessed || 0}</p>
                   </div>
                 </div>
               </div>
@@ -241,7 +443,7 @@ export default function AdminDashboard() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {users.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
+                    <tr key={user._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{user.name}</div>
                       </td>
@@ -249,26 +451,29 @@ export default function AdminDashboard() {
                         <div className="text-sm text-gray-500">{user.email}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(user.joinDate).toLocaleDateString('vi-VN')}
+                        {new Date(user.createdAt).toLocaleDateString('vi-VN')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {user.certificatesProcessed}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.status === 'active' 
+                          user.isActive 
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-red-100 text-red-800'
                         }`}>
-                          {user.status === 'active' ? 'Hoạt động' : 'Không hoạt động'}
+                          {user.isActive ? 'Hoạt động' : 'Không hoạt động'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button className="text-primary-600 hover:text-primary-900 mr-4">
                           Chỉnh sửa
                         </button>
-                        <button className="text-red-600 hover:text-red-900">
-                          {user.status === 'active' ? 'Khóa' : 'Kích hoạt'}
+                        <button 
+                          onClick={() => handleToggleUserStatus(user._id, user.isActive)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          {user.isActive ? 'Khóa' : 'Kích hoạt'}
                         </button>
                       </td>
                     </tr>
