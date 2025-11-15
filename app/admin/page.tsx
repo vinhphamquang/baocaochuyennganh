@@ -292,20 +292,45 @@ export default function AdminDashboard() {
     { id: 'logs', name: 'Nhật ký', icon: CogIcon }
   ]
 
+  const handleLogout = () => {
+    if (confirm('Bạn có chắc muốn đăng xuất?')) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      toast.success('Đã đăng xuất')
+      window.location.href = '/'
+    }
+  }
+
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
-      <div className="bg-white shadow">
+      <div className="bg-white shadow-lg border-b border-gray-200">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-              <p className="text-sm text-gray-600">Quản trị hệ thống</p>
+            <div className="flex items-center space-x-4">
+              <div className="h-12 w-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                <CogIcon className="h-7 w-7 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+                <p className="text-sm text-gray-600">Xin chào, {user.fullName || 'Admin'}</p>
+              </div>
             </div>
-            <div className="flex space-x-4">
-              <a href="/" className="btn-secondary">
-                Về trang chủ
+            <div className="flex items-center space-x-3">
+              <a 
+                href="/" 
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+              >
+                🏠 Trang chủ
               </a>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 text-white bg-gradient-to-r from-red-600 to-red-700 rounded-lg hover:from-red-700 hover:to-red-800 transition-all font-medium shadow-md hover:shadow-lg"
+              >
+                🚪 Đăng xuất
+              </button>
             </div>
           </div>
         </div>
@@ -313,16 +338,16 @@ export default function AdminDashboard() {
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
         {/* Navigation Tabs */}
-        <div className="border-b border-gray-200 mb-8">
-          <nav className="-mb-px flex space-x-8">
+        <div className="bg-white rounded-xl shadow-md p-2 mb-8">
+          <nav className="flex space-x-2">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`flex items-center px-6 py-3 rounded-lg font-medium text-sm transition-all ${
                   activeTab === tab.id
-                    ? 'border-primary-500 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
+                    : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 <tab.icon className="h-5 w-5 mr-2" />
@@ -336,60 +361,60 @@ export default function AdminDashboard() {
         {activeTab === 'overview' && (
           <div>
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <UsersIcon className="h-8 w-8 text-primary-600" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-100 text-sm font-medium mb-1">Tổng người dùng</p>
+                    <p className="text-4xl font-bold">{statistics?.totalUsers || 0}</p>
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Tổng người dùng</p>
-                    <p className="text-2xl font-semibold text-gray-900">{statistics?.totalUsers || 0}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <UsersIcon className="h-8 w-8 text-green-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Người dùng hoạt động</p>
-                    <p className="text-2xl font-semibold text-gray-900">{statistics?.activeUsers || 0}</p>
+                  <div className="bg-white bg-opacity-20 rounded-full p-4">
+                    <UsersIcon className="h-8 w-8" />
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <DocumentTextIcon className="h-8 w-8 text-blue-600" />
+              <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-green-100 text-sm font-medium mb-1">Người dùng hoạt động</p>
+                    <p className="text-4xl font-bold">{statistics?.activeUsers || 0}</p>
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Tổng chứng chỉ</p>
-                    <p className="text-2xl font-semibold text-gray-900">{statistics?.totalCertificates || 0}</p>
+                  <div className="bg-white bg-opacity-20 rounded-full p-4">
+                    <UsersIcon className="h-8 w-8" />
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <ChartBarIcon className="h-8 w-8 text-orange-600" />
+              <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-purple-100 text-sm font-medium mb-1">Tổng chứng chỉ</p>
+                    <p className="text-4xl font-bold">{statistics?.totalCertificates || 0}</p>
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Hôm nay</p>
-                    <p className="text-2xl font-semibold text-gray-900">{statistics?.todayProcessed || 0}</p>
+                  <div className="bg-white bg-opacity-20 rounded-full p-4">
+                    <DocumentTextIcon className="h-8 w-8" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-orange-100 text-sm font-medium mb-1">Hôm nay</p>
+                    <p className="text-4xl font-bold">{statistics?.todayProcessed || 0}</p>
+                  </div>
+                  <div className="bg-white bg-opacity-20 rounded-full p-4">
+                    <ChartBarIcon className="h-8 w-8" />
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Recent Activity */}
-            <div className="bg-white shadow rounded-lg">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Hoạt động gần đây</h2>
+            <div className="bg-white shadow-lg rounded-xl overflow-hidden">
+              <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900">📊 Hoạt động gần đây</h2>
               </div>
               <div className="p-6">
                 <div className="space-y-4">
