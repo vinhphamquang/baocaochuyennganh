@@ -30,67 +30,79 @@ router.post('/upload', auth, upload.single('certificate'), async (req, res) => {
       return res.status(400).json({ message: 'Vui lòng chọn file để tải lên' })
     }
 
-    // Create certificate record
+    // Nhận dữ liệu đã trích xuất từ client (Tesseract.js OCR)
+    let extractedData = {}
+    if (req.body.extractedData) {
+      try {
+        extractedData = JSON.parse(req.body.extractedData)
+      } catch (e) {
+        console.error('Error parsing extracted data:', e)
+      }
+    }
+
+    // Xác định loại chứng chỉ
+    const certificateType = extractedData.certificateType || 'Unknown'
+
+    // Chuẩn hóa dữ liệu
+    const normalizedData = {
+      fullName: extractedData.fullName || '',
+      dateOfBirth: extractedData.dateOfBirth || '',
+      certificateNumber: extractedData.certificateNumber || '',
+      testDate: extractedData.examDate || '',
+      issueDate: extractedData.issueDate || '',
+      issuingOrganization: getIssuingOrg(certificateType),
+      scores: extractedData.scores || {},
+      rawText: extractedData.rawText || ''
+    }
+
+    // Tính độ tin cậy dựa trên số trường đã điền
+    const filledFields = Object.values(normalizedData).filter(v => 
+      v && (typeof v === 'string' ? v.trim() : Object.keys(v).length > 0)
+    ).length
+    const totalFields = 7
+    const confidence = Math.round((filledFields / totalFields) * 100)
+
+    // Tạo bản ghi chứng chỉ
     const certificate = new Certificate({
       userId: req.userId,
       fileName: req.file.originalname,
       fileSize: req.file.size,
       fileType: req.file.mimetype,
-      processingStatus: 'processing'
+      certificateType: certificateType,
+      extractedData: normalizedData,
+      processingStatus: 'completed',
+      ocrConfidence: confidence,
+      processingTime: 0 // OCR đã xử lý trên client
     })
 
     await certificate.save()
 
-    // Simulate OCR processing
-    setTimeout(async () => {
-      try {
-        // Mock extracted data
-        const mockData = {
-          fullName: 'Nguyễn Văn A',
-          dateOfBirth: '15/03/1995',
-          certificateNumber: 'IELTS-2023-ABC123',
-          testDate: '12/10/2023',
-          issueDate: '25/10/2023',
-          issuingOrganization: 'British Council',
-          scores: {
-            overall: '7.5',
-            listening: '8.0',
-            reading: '7.0',
-            writing: '7.0',
-            speaking: '8.0'
-          }
-        }
-
-        // Update certificate with extracted data
-        certificate.extractedData = mockData
-        certificate.processingStatus = 'completed'
-        certificate.ocrConfidence = 95
-        certificate.processingTime = 2500
-        certificate.certificateType = 'IELTS'
-
-        await certificate.save()
-
-        // Update user's certificate count
-        await User.findByIdAndUpdate(req.userId, {
-          $inc: { certificatesProcessed: 1 }
-        })
-      } catch (error) {
-        console.error('Processing error:', error)
-        certificate.processingStatus = 'failed'
-        certificate.errorMessage = 'Lỗi khi xử lý file'
-        await certificate.save()
-      }
-    }, 3000)
+    // Cập nhật số lượng chứng chỉ của user
+    await User.findByIdAndUpdate(req.userId, {
+      $inc: { certificatesProcessed: 1 }
+    })
 
     res.json({
-      message: 'File đã được tải lên và đang xử lý',
-      certificateId: certificate._id
+      message: 'Tải lên và xử lý thành công',
+      certificateId: certificate._id,
+      certificate
     })
   } catch (error) {
     console.error('Upload error:', error)
     res.status(500).json({ message: 'Lỗi khi tải lên file' })
   }
 })
+
+// Helper function để xác định tổ chức cấp chứng chỉ
+function getIssuingOrg(certificateType) {
+  const orgMap = {
+    'IELTS': 'British Council / IDP',
+    'TOEIC': 'ETS',
+    'TOEFL': 'ETS',
+    'VSTEP': 'Bộ Giáo dục và Đào tạo'
+  }
+  return orgMap[certificateType] || 'Unknown'
+}
 
 // Get user's certificates
 router.get('/', auth, async (req, res) => {

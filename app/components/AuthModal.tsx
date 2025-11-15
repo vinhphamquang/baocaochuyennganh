@@ -41,11 +41,23 @@ export default function AuthModal({ isOpen, onClose, mode, onSuccess }: AuthModa
     try {
       const response = await authAPI.login(data)
       
-      // Save token to cookie
+      // Save token to both cookie and localStorage
       Cookies.set('token', response.token, { expires: 7 })
       Cookies.set('user', JSON.stringify(response.user), { expires: 7 })
+      localStorage.setItem('token', response.token)
+      localStorage.setItem('user', JSON.stringify(response.user))
       
       toast.success('Đăng nhập thành công!')
+      
+      // Redirect based on role
+      setTimeout(() => {
+        if (response.user.role === 'admin') {
+          window.location.href = '/admin'
+        } else {
+          window.location.href = '/dashboard'
+        }
+      }, 500)
+      
       onSuccess()
     } catch (error: any) {
       toast.error(error.message || 'Đăng nhập thất bại')
@@ -68,11 +80,19 @@ export default function AuthModal({ isOpen, onClose, mode, onSuccess }: AuthModa
         password: data.password,
       })
       
-      // Save token to cookie
+      // Save token to both cookie and localStorage
       Cookies.set('token', response.token, { expires: 7 })
       Cookies.set('user', JSON.stringify(response.user), { expires: 7 })
+      localStorage.setItem('token', response.token)
+      localStorage.setItem('user', JSON.stringify(response.user))
       
       toast.success('Đăng ký thành công!')
+      
+      // Redirect to dashboard
+      setTimeout(() => {
+        window.location.href = '/dashboard'
+      }, 500)
+      
       onSuccess()
     } catch (error: any) {
       toast.error(error.message || 'Đăng ký thất bại')

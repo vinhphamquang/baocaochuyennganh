@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { CloudArrowUpIcon, DocumentIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
+import { processImage, OCRProgress } from '@/lib/ocr'
 
 interface ExtractedData {
   fullName: string
@@ -26,6 +27,17 @@ export default function UploadSection() {
   const [files, setFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null)
+  const [ocrProgress, setOcrProgress] = useState<OCRProgress | null>(null)
+  const [formKey, setFormKey] = useState(0) // Key để force re-render
+
+  // Debug: Log khi extractedData thay đổi
+  useEffect(() => {
+    console.log('📊 extractedData changed:', extractedData)
+    if (extractedData) {
+      // Force re-render form khi có dữ liệu mới
+      setFormKey(prev => prev + 1)
+    }
+  }, [extractedData])
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFiles(acceptedFiles)
@@ -54,36 +66,96 @@ export default function UploadSection() {
     }
 
     setIsProcessing(true)
+    setOcrProgress({ status: 'Đang khởi tạo...', progress: 0 })
     
-    // Simulate API call
     try {
-      await new Promise(resolve => setTimeout(resolve, 3000))
+      // Xử lý OCR với Tesseract.js
+      toast.loading('Đang đọc văn bản từ chứng chỉ...', { id: 'ocr' })
       
-      // Mock extracted data
-      const mockData: ExtractedData = {
-        fullName: 'Nguyễn Văn A',
-        dateOfBirth: '15/03/1995',
-        certificateType: 'IELTS Academic',
-        testDate: '12/10/2023',
-        issueDate: '25/10/2023',
-        certificateNumber: 'IELTS-2023-ABC123',
-        scores: {
-          overall: '7.5',
-          listening: '8.0',
-          reading: '7.0',
-          writing: '7.0',
-          speaking: '8.0'
-        },
-        issuingOrganization: 'British Council'
+      console.log('🔍 Bắt đầu OCR cho file:', files[0].name)
+      
+      const ocrData = await processImage(files[0], (progress) => {
+        console.log('📊 OCR Progress:', progress)
+        setOcrProgress(progress)
+      })
+
+      console.log('✅ Dữ liệu OCR:', ocrData)
+      
+      // Kiểm tra xem có dữ liệu không
+      const hasData = ocrData.fullName || ocrData.certificateNumber || ocrData.certificateType
+      
+      if (!hasData) {
+        console.warn('⚠️ OCR không trích xuất được thông tin. Hiển thị raw text...')
+        console.log('📄 Raw text:', ocrData.rawText)
+        
+        // Hiển thị thông báo
+        toast.error('Không thể trích xuất thông tin từ ảnh. Vui lòng thử ảnh rõ nét hơn.', { id: 'ocr' })
+        
+        // Vẫn hiển thị form với raw text để user có thể nhập thủ công
+        const emptyData: ExtractedData = {
+          fullName: '',
+          dateOfBirth: '',
+          certificateType: 'Unknown',
+          testDate: '',
+          issueDate: '',
+          certificateNumber: '',
+          scores: {
+            overall: '',
+            listening: '',
+            reading: '',
+            writing: '',
+            speaking: ''
+          },
+          issuingOrganization: ''
+        }
+        setExtractedData(emptyData)
+        return
       }
       
+      // Chuyển đổi dữ liệu OCR sang format của component
+      const mockData: ExtractedData = {
+        fullName: ocrData.fullName || '',
+        dateOfBirth: ocrData.dateOfBirth || '',
+        certificateType: ocrData.certificateType || 'Unknown',
+        testDate: ocrData.examDate || '',
+        issueDate: ocrData.issueDate || '',
+        certificateNumber: ocrData.certificateNumber || '',
+        scores: {
+          overall: ocrData.scores?.overall?.toString() || '',
+          listening: ocrData.scores?.listening?.toString() || '',
+          reading: ocrData.scores?.reading?.toString() || '',
+          writing: ocrData.scores?.writing?.toString() || '',
+          speaking: ocrData.scores?.speaking?.toString() || ''
+        },
+        issuingOrganization: getIssuingOrg(ocrData.certificateType || '')
+      }
+      
+      console.log('📋 Dữ liệu đã chuyển đổi:', mockData)
       setExtractedData(mockData)
-      toast.success('Trích xuất thông tin thành công!')
+      toast.success('Trích xuất thông tin thành công!', { id: 'ocr' })
+      
+      // Log raw text để debug
+      if (ocrData.rawText) {
+        console.log('📄 Raw OCR Text:', ocrData.rawText)
+      }
     } catch (error) {
-      toast.error('Có lỗi xảy ra khi xử lý file')
+      console.error('❌ Lỗi OCR:', error)
+      toast.error('Có lỗi xảy ra khi xử lý file', { id: 'ocr' })
     } finally {
       setIsProcessing(false)
+      setOcrProgress(null)
     }
+  }
+
+  // Helper function
+  function getIssuingOrg(certificateType: string): string {
+    const orgMap: Record<string, string> = {
+      'IELTS': 'British Council / IDP',
+      'TOEIC': 'ETS',
+      'TOEFL': 'ETS',
+      'VSTEP': 'Bộ Giáo dục và Đào tạo'
+    }
+    return orgMap[certificateType] || 'Unknown'
   }
 
   const exportData = (format: 'json' | 'csv' | 'excel') => {
@@ -174,13 +246,72 @@ export default function UploadSection() {
                 </div>
               ))}
               
-              <div className="mt-6 text-center">
+              {/* OCR Progress Bar */}
+              {ocrProgress && (
+                <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex justify-between text-sm text-blue-900 mb-2">
+                    <span className="font-medium">{ocrProgress.status}</span>
+                    <span className="font-bold">{Math.round(ocrProgress.progress * 100)}%</span>
+                  </div>
+                  <div className="w-full bg-blue-200 rounded-full h-3">
+                    <div 
+                      className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${ocrProgress.progress * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-blue-700 mt-2">
+                    💡 Đang sử dụng Tesseract.js OCR để đọc văn bản...
+                  </p>
+                </div>
+              )}
+              
+              <div className="mt-6 flex gap-4 justify-center">
                 <button
                   onClick={processFile}
                   disabled={isProcessing}
                   className="btn-primary px-8 py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isProcessing ? 'Đang xử lý...' : 'Trích xuất thông tin'}
+                  {isProcessing ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      {ocrProgress ? ocrProgress.status : 'Đang xử lý...'}
+                    </span>
+                  ) : (
+                    'Trích xuất thông tin (OCR)'
+                  )}
+                </button>
+                
+                {/* Nút test với mock data */}
+                <button
+                  onClick={() => {
+                    const testData: ExtractedData = {
+                      fullName: 'NGUYEN VAN A',
+                      dateOfBirth: '15/03/1995',
+                      certificateType: 'IELTS',
+                      testDate: '12/10/2023',
+                      issueDate: '25/10/2023',
+                      certificateNumber: 'IELTS-2023-ABC123',
+                      scores: {
+                        overall: '7.5',
+                        listening: '8.0',
+                        reading: '7.0',
+                        writing: '7.0',
+                        speaking: '8.0'
+                      },
+                      issuingOrganization: 'British Council'
+                    }
+                    console.log('🧪 Setting test data:', testData)
+                    setExtractedData(testData)
+                    console.log('✅ State should be updated now')
+                    toast.success('Đã điền dữ liệu test!')
+                  }}
+                  disabled={isProcessing}
+                  className="btn-secondary px-6 py-3 text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Test với dữ liệu mẫu
                 </button>
               </div>
             </div>
@@ -188,119 +319,118 @@ export default function UploadSection() {
 
           {/* Extracted Data */}
           {extractedData && (
-            <div className="mt-12 bg-gray-50 rounded-lg p-8">
-              <h3 className="text-xl font-bold text-gray-900 mb-6">Thông tin đã trích xuất:</h3>
+            <div key={formKey} className="mt-12 bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-xl border border-gray-200 p-8">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900">Thông tin đã trích xuất</h3>
+                  <p className="text-sm text-gray-600">Dữ liệu từ chứng chỉ {extractedData.certificateType}</p>
+                </div>
+              </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Họ và tên</label>
-                  <input
-                    type="text"
-                    value={extractedData.fullName}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    readOnly
-                  />
+                {/* Họ và tên - Highlighted */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                    Họ và tên
+                  </label>
+                  <div className="w-full px-5 py-4 border-2 border-blue-500 rounded-xl bg-gradient-to-r from-blue-50 to-white shadow-md hover:shadow-lg transition-shadow">
+                    <p className="font-bold text-xl text-gray-900">
+                      {extractedData.fullName || '(Chưa có dữ liệu)'}
+                    </p>
+                  </div>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ngày sinh</label>
-                  <input
-                    type="text"
-                    value={extractedData.dateOfBirth}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    readOnly
-                  />
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">📅 Ngày sinh</label>
+                  <div className="w-full px-5 py-4 border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
+                    <p className="font-semibold text-base text-gray-900">{extractedData.dateOfBirth || '(Chưa có dữ liệu)'}</p>
+                  </div>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Loại chứng chỉ</label>
-                  <input
-                    type="text"
-                    value={extractedData.certificateType}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    readOnly
-                  />
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">🎓 Loại chứng chỉ</label>
+                  <div className="w-full px-5 py-4 border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
+                    <p className="font-semibold text-base text-blue-600">{extractedData.certificateType || '(Chưa có dữ liệu)'}</p>
+                  </div>
+                </div>
+                
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">🔢 Số chứng chỉ</label>
+                  <div className="w-full px-5 py-4 border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
+                    <p className="font-mono font-semibold text-base text-gray-900">{extractedData.certificateNumber || '(Chưa có dữ liệu)'}</p>
+                  </div>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Số chứng chỉ</label>
-                  <input
-                    type="text"
-                    value={extractedData.certificateNumber}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    readOnly
-                  />
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">📝 Ngày thi</label>
+                  <div className="w-full px-5 py-4 border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
+                    <p className="font-semibold text-base text-gray-900">{extractedData.testDate || '(Chưa có dữ liệu)'}</p>
+                  </div>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ngày thi</label>
-                  <input
-                    type="text"
-                    value={extractedData.testDate}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    readOnly
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ngày cấp</label>
-                  <input
-                    type="text"
-                    value={extractedData.issueDate}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    readOnly
-                  />
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">✅ Ngày cấp</label>
+                  <div className="w-full px-5 py-4 border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
+                    <p className="font-semibold text-base text-gray-900">{extractedData.issueDate || '(Chưa có dữ liệu)'}</p>
+                  </div>
                 </div>
               </div>
 
               {/* Scores */}
-              <div className="mt-6">
-                <h4 className="text-lg font-medium text-gray-900 mb-4">Điểm số:</h4>
+              <div className="mt-8 pt-8 border-t-2 border-gray-200">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg flex items-center justify-center shadow-md">
+                    <span className="text-2xl">⭐</span>
+                  </div>
+                  <h4 className="text-xl font-bold text-gray-900">Điểm số chi tiết</h4>
+                </div>
+                
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tổng</label>
-                    <input
-                      type="text"
-                      value={extractedData.scores.overall}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      readOnly
-                    />
+                  {/* Overall Score - Highlighted */}
+                  <div className="col-span-2 md:col-span-1">
+                    <label className="block text-sm font-bold text-yellow-700 mb-2 text-center">🏆 TỔNG</label>
+                    <div className="w-full px-4 py-6 border-4 border-yellow-400 rounded-2xl bg-gradient-to-br from-yellow-50 to-yellow-100 shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
+                      <p className="font-black text-5xl text-center text-yellow-700">{extractedData.scores.overall || '0'}</p>
+                      <p className="text-xs text-center text-yellow-600 mt-1 font-semibold">Band Score</p>
+                    </div>
                   </div>
+                  
+                  {/* Listening */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nghe</label>
-                    <input
-                      type="text"
-                      value={extractedData.scores.listening}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      readOnly
-                    />
+                    <label className="block text-sm font-semibold text-gray-700 mb-2 text-center">🎧 Nghe</label>
+                    <div className="w-full px-4 py-6 border-2 border-blue-200 rounded-xl bg-gradient-to-br from-blue-50 to-white shadow-md hover:shadow-lg transition-all">
+                      <p className="font-bold text-3xl text-center text-blue-600">{extractedData.scores.listening || '0'}</p>
+                    </div>
                   </div>
+                  
+                  {/* Reading */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Đọc</label>
-                    <input
-                      type="text"
-                      value={extractedData.scores.reading}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      readOnly
-                    />
+                    <label className="block text-sm font-semibold text-gray-700 mb-2 text-center">📖 Đọc</label>
+                    <div className="w-full px-4 py-6 border-2 border-green-200 rounded-xl bg-gradient-to-br from-green-50 to-white shadow-md hover:shadow-lg transition-all">
+                      <p className="font-bold text-3xl text-center text-green-600">{extractedData.scores.reading || '0'}</p>
+                    </div>
                   </div>
+                  
+                  {/* Writing */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Viết</label>
-                    <input
-                      type="text"
-                      value={extractedData.scores.writing}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      readOnly
-                    />
+                    <label className="block text-sm font-semibold text-gray-700 mb-2 text-center">✍️ Viết</label>
+                    <div className="w-full px-4 py-6 border-2 border-purple-200 rounded-xl bg-gradient-to-br from-purple-50 to-white shadow-md hover:shadow-lg transition-all">
+                      <p className="font-bold text-3xl text-center text-purple-600">{extractedData.scores.writing || '0'}</p>
+                    </div>
                   </div>
+                  
+                  {/* Speaking */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nói</label>
-                    <input
-                      type="text"
-                      value={extractedData.scores.speaking}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      readOnly
-                    />
+                    <label className="block text-sm font-semibold text-gray-700 mb-2 text-center">🗣️ Nói</label>
+                    <div className="w-full px-4 py-6 border-2 border-red-200 rounded-xl bg-gradient-to-br from-red-50 to-white shadow-md hover:shadow-lg transition-all">
+                      <p className="font-bold text-3xl text-center text-red-600">{extractedData.scores.speaking || '0'}</p>
+                    </div>
                   </div>
                 </div>
               </div>
