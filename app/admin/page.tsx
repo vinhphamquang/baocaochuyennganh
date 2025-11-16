@@ -297,7 +297,7 @@ export default function AdminDashboard() {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       toast.success('Đã đăng xuất')
-      window.location.href = '/'
+      window.location.href = '/admin'
     }
   }
 
