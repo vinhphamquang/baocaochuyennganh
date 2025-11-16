@@ -39,17 +39,7 @@ export default function Header({ isLoggedIn, setIsLoggedIn }: HeaderProps) {
             </button>
           </div>
           
-          <div className="hidden lg:flex lg:gap-x-12">
-            <a href="#features" className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600">
-              Tính năng
-            </a>
-            <a href="#about" className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600">
-              Giới thiệu
-            </a>
-            <a href="#contact" className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600">
-              Liên hệ
-            </a>
-          </div>
+
           
           <div className="hidden lg:flex lg:flex-1 lg:justify-end lg:gap-x-4">
             {isLoggedIn ? (
@@ -102,17 +92,7 @@ export default function Header({ isLoggedIn, setIsLoggedIn }: HeaderProps) {
               </div>
               <div className="mt-6 flow-root">
                 <div className="-my-6 divide-y divide-gray-500/10">
-                  <div className="space-y-2 py-6">
-                    <a href="#features" className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">
-                      Tính năng
-                    </a>
-                    <a href="#about" className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">
-                      Giới thiệu
-                    </a>
-                    <a href="#contact" className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">
-                      Liên hệ
-                    </a>
-                  </div>
+
                   <div className="py-6">
                     {isLoggedIn ? (
                       <>
