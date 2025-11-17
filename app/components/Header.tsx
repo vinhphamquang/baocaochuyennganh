@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 import AuthModal from './AuthModal'
 
@@ -13,6 +13,20 @@ export default function Header({ isLoggedIn, setIsLoggedIn }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
+
+  useEffect(() => {
+    // Lắng nghe sự kiện mở modal đăng nhập từ các component khác
+    const handleOpenAuthModal = () => {
+      setAuthMode('login')
+      setAuthModalOpen(true)
+    }
+
+    window.addEventListener('openAuthModal', handleOpenAuthModal)
+    
+    return () => {
+      window.removeEventListener('openAuthModal', handleOpenAuthModal)
+    }
+  }, [])
 
   const handleAuthClick = (mode: 'login' | 'register') => {
     setAuthMode(mode)

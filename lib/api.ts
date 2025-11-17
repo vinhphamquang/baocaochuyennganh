@@ -130,3 +130,75 @@ export const certificateAPI = {
     return result
   },
 }
+
+export interface CommentData {
+  content: string
+  rating: number
+}
+
+export interface Comment {
+  _id: string
+  userId: string
+  userName: string
+  userEmail: string
+  content: string
+  rating: number
+  isApproved: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export const commentAPI = {
+  getAll: async () => {
+    const response = await fetch(`${API_URL}/comments`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Lỗi khi lấy danh sách bình luận')
+    }
+
+    return result
+  },
+
+  create: async (data: CommentData, token: string) => {
+    const response = await fetch(`${API_URL}/comments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Lỗi khi tạo bình luận')
+    }
+
+    return result
+  },
+
+  delete: async (id: string, token: string) => {
+    const response = await fetch(`${API_URL}/comments/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Lỗi khi xóa bình luận')
+    }
+
+    return result
+  },
+}

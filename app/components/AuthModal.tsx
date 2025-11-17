@@ -49,16 +49,13 @@ export default function AuthModal({ isOpen, onClose, mode, onSuccess }: AuthModa
       
       toast.success('Đăng nhập thành công!')
       
-      // Redirect based on role
-      setTimeout(() => {
-        if (response.user.role === 'admin') {
-          window.location.href = '/admin'
-        } else {
-          window.location.href = '/dashboard'
-        }
-      }, 500)
-      
+      // Gọi onSuccess để cập nhật trạng thái đăng nhập
       onSuccess()
+      
+      // Reload trang để cập nhật UI
+      setTimeout(() => {
+        window.location.reload()
+      }, 500)
     } catch (error: any) {
       toast.error(error.message || 'Đăng nhập thất bại')
     } finally {
@@ -88,12 +85,13 @@ export default function AuthModal({ isOpen, onClose, mode, onSuccess }: AuthModa
       
       toast.success('Đăng ký thành công!')
       
-      // Redirect to dashboard
-      setTimeout(() => {
-        window.location.href = '/dashboard'
-      }, 500)
-      
+      // Gọi onSuccess để cập nhật trạng thái đăng nhập
       onSuccess()
+      
+      // Reload trang để cập nhật UI
+      setTimeout(() => {
+        window.location.reload()
+      }, 500)
     } catch (error: any) {
       toast.error(error.message || 'Đăng ký thất bại')
     } finally {

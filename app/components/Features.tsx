@@ -71,21 +71,7 @@ export default function Features() {
           </dl>
         </div>
 
-        {/* Supported Certificates */}
-        <div className="mt-24">
-          <div className="text-center">
-            <h3 className="text-2xl font-bold text-gray-900 mb-8">
-              Chứng chỉ được hỗ trợ
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
-              {['IELTS', 'TOEFL', 'TOEIC', 'HSK', 'JLPT'].map((cert) => (
-                <div key={cert} className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
-                  <div className="text-lg font-semibold text-primary-600">{cert}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+
       </div>
     </section>
   )
