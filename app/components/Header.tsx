@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
+import { useState, useEffect, useRef } from 'react'
+import { Bars3Icon, XMarkIcon, UserCircleIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
 import AuthModal from './AuthModal'
 
 interface HeaderProps {
@@ -13,6 +13,9 @@ export default function Header({ isLoggedIn, setIsLoggedIn }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [user, setUser] = useState<any>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     // Lắng nghe sự kiện mở modal đăng nhập từ các component khác
@@ -23,14 +26,45 @@ export default function Header({ isLoggedIn, setIsLoggedIn }: HeaderProps) {
 
     window.addEventListener('openAuthModal', handleOpenAuthModal)
     
+    // Close dropdown when clicking outside
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    
     return () => {
       window.removeEventListener('openAuthModal', handleOpenAuthModal)
+      document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [])
+
+  // Load user data khi isLoggedIn thay đổi
+  useEffect(() => {
+    if (isLoggedIn) {
+      const userData = localStorage.getItem('user')
+      if (userData) {
+        setUser(JSON.parse(userData))
+      }
+    } else {
+      setUser(null)
+    }
+  }, [isLoggedIn])
 
   const handleAuthClick = (mode: 'login' | 'register') => {
     setAuthMode(mode)
     setAuthModalOpen(true)
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    setIsLoggedIn(false)
+    setUser(null)
+    setUserMenuOpen(false)
+    window.location.href = '/'
   }
 
   return (
@@ -55,19 +89,60 @@ export default function Header({ isLoggedIn, setIsLoggedIn }: HeaderProps) {
           
 
           
-          <div className="hidden lg:flex lg:flex-1 lg:justify-end lg:gap-x-4">
-            {isLoggedIn ? (
-              <>
-                <a href="/dashboard" className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600">
-                  Dashboard
-                </a>
+          <div className="hidden lg:flex lg:flex-1 lg:justify-end lg:gap-x-4 lg:items-center">
+            {isLoggedIn && user ? (
+              <div className="relative" ref={dropdownRef}>
                 <button
-                  onClick={() => setIsLoggedIn(false)}
-                  className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600"
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center space-x-2 text-sm font-semibold text-gray-900 hover:text-primary-600 focus:outline-none"
                 >
-                  Đăng xuất
+                  <UserCircleIcon className="h-8 w-8 text-gray-600" />
+                  <span>{user.fullName || user.name}</span>
+                  <ChevronDownIcon className="h-4 w-4" />
                 </button>
-              </>
+
+                {userMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                    <div className="px-4 py-3 border-b border-gray-200">
+                      <p className="text-sm font-semibold text-gray-900">{user.fullName || user.name}</p>
+                      <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                    </div>
+                    
+                    <a
+                      href="/dashboard"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      📊 Dashboard
+                    </a>
+                    
+                    <a
+                      href="/dashboard"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      👤 Hồ sơ cá nhân
+                    </a>
+                    
+                    <a
+                      href="/dashboard"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      📜 Chứng chỉ của tôi
+                    </a>
+                    
+                    <div className="border-t border-gray-200 mt-2 pt-2">
+                      <button
+                        onClick={handleLogout}
+                        className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                      >
+                        🚪 Đăng xuất
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
               <>
                 <button
@@ -108,16 +183,45 @@ export default function Header({ isLoggedIn, setIsLoggedIn }: HeaderProps) {
                 <div className="-my-6 divide-y divide-gray-500/10">
 
                   <div className="py-6">
-                    {isLoggedIn ? (
+                    {isLoggedIn && user ? (
                       <>
-                        <a href="/dashboard" className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">
-                          Dashboard
-                        </a>
-                        <button
-                          onClick={() => setIsLoggedIn(false)}
+                        <div className="px-3 py-2 mb-4 bg-gray-50 rounded-lg">
+                          <p className="text-sm font-semibold text-gray-900">{user.fullName || user.name}</p>
+                          <p className="text-xs text-gray-500">{user.email}</p>
+                        </div>
+                        
+                        <a 
+                          href="/dashboard" 
                           className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                          onClick={() => setMobileMenuOpen(false)}
                         >
-                          Đăng xuất
+                          📊 Dashboard
+                        </a>
+                        
+                        <a 
+                          href="/dashboard" 
+                          className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                          onClick={() => setMobileMenuOpen(false)}
+                        >
+                          👤 Hồ sơ cá nhân
+                        </a>
+                        
+                        <a 
+                          href="/dashboard" 
+                          className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                          onClick={() => setMobileMenuOpen(false)}
+                        >
+                          📜 Chứng chỉ của tôi
+                        </a>
+                        
+                        <button
+                          onClick={() => {
+                            setMobileMenuOpen(false)
+                            handleLogout()
+                          }}
+                          className="-mx-3 block w-full text-left rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-red-600 hover:bg-red-50 mt-4"
+                        >
+                          🚪 Đăng xuất
                         </button>
                       </>
                     ) : (

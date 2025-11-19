@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Header from './components/Header'
 import Hero from './components/Hero'
 import HowItWorks from './components/HowItWorks'
@@ -12,6 +12,16 @@ import Footer from './components/Footer'
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  useEffect(() => {
+    // Kiểm tra trạng thái đăng nhập khi component mount
+    const token = localStorage.getItem('token')
+    const user = localStorage.getItem('user')
+    
+    if (token && user) {
+      setIsLoggedIn(true)
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-white">
