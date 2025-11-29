@@ -307,7 +307,15 @@ export default function Dashboard() {
               <DocumentTextIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500 mb-4">Bạn chưa có chứng chỉ nào</p>
               <button
-                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                onClick={() => {
+                  router.push('/#upload')
+                  setTimeout(() => {
+                    const uploadSection = document.getElementById('upload')
+                    if (uploadSection) {
+                      uploadSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }
+                  }, 100)
+                }}
                 className="btn-primary"
               >
                 Tải lên chứng chỉ đầu tiên

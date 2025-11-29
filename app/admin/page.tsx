@@ -22,7 +22,7 @@ interface User {
 
 interface Certificate {
   _id: string
-  userId: string
+  userId: string | { _id: string; fullName: string; email: string }
   fileName: string
   certificateType: string
   processingStatus: string
@@ -193,12 +193,20 @@ export default function AdminDashboard() {
     setLoadingActivities(true)
     
     try {
-      // Lọc chứng chỉ của user này - so sánh cả string và object
+      // Lọc chứng chỉ của user này
+      // Backend populate userId nên có thể là object {_id, fullName, email} hoặc string
       const userCerts = certificates.filter(cert => {
-        const certUserId = typeof cert.userId === 'object' ? (cert.userId as any)._id : cert.userId
-        const userId = user._id
-        console.log(`Comparing: ${certUserId} === ${userId}`, certUserId === userId)
-        return certUserId === userId || cert.userId === userId || String(cert.userId) === String(userId)
+        if (typeof cert.userId === 'object' && cert.userId !== null) {
+          // userId là object đã được populate
+          const match = cert.userId._id === user._id
+          console.log(`Object compare: ${cert.userId._id} === ${user._id} = ${match}`)
+          return match
+        } else {
+          // userId là string
+          const match = cert.userId === user._id
+          console.log(`String compare: ${cert.userId} === ${user._id} = ${match}`)
+          return match
+        }
       })
       
       console.log('✅ Filtered certificates for user:', userCerts)
