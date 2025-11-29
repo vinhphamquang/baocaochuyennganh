@@ -12,7 +12,7 @@ import toast from 'react-hot-toast'
 
 interface User {
   _id: string
-  name: string
+  fullName: string
   email: string
   createdAt: string
   certificatesProcessed: number
@@ -541,7 +541,7 @@ export default function AdminDashboard() {
                   {users.map((user) => (
                     <tr key={user._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                        <div className="text-sm font-medium text-gray-900">{user.fullName}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500">{user.email}</div>
@@ -583,40 +583,100 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* Logs Tab */}
+        {/* Logs Tab - Recent Registrations */}
         {activeTab === 'logs' && (
           <div className="bg-white shadow rounded-lg">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">Nhật ký hệ thống</h2>
+              <h2 className="text-lg font-medium text-gray-900">Nhật ký hệ thống - Tài khoản mới đăng ký</h2>
             </div>
             <div className="p-6">
-              <div className="space-y-4">
-                {logs.map((log) => (
-                  <div key={log.id} className={`p-4 rounded-lg border-l-4 ${
-                    log.type === 'error' ? 'bg-red-50 border-red-400' :
-                    log.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
-                    'bg-green-50 border-green-400'
-                  }`}>
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0">
-                        {log.type === 'error' && <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />}
-                        {log.type === 'warning' && <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400" />}
-                        {log.type === 'info' && <DocumentTextIcon className="h-5 w-5 text-green-400" />}
-                      </div>
-                      <div className="ml-3 flex-1">
-                        <p className={`text-sm font-medium ${
-                          log.type === 'error' ? 'text-red-800' :
-                          log.type === 'warning' ? 'text-yellow-800' :
-                          'text-green-800'
+              {users.length === 0 ? (
+                <div className="text-center py-8">
+                  <UsersIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">Chưa có tài khoản nào</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {users
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                    .slice(0, 20)
+                    .map((user) => {
+                      const registrationDate = new Date(user.createdAt)
+                      const now = new Date()
+                      const diffTime = Math.abs(now.getTime() - registrationDate.getTime())
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+                      const isNew = diffDays <= 7
+                      
+                      return (
+                        <div key={user._id} className={`p-4 rounded-lg border-l-4 ${
+                          isNew ? 'bg-green-50 border-green-400' : 'bg-blue-50 border-blue-400'
                         }`}>
-                          {log.message}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">{log.timestamp}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start space-x-3 flex-1">
+                              <div className="flex-shrink-0">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                                  isNew ? 'bg-green-100' : 'bg-blue-100'
+                                }`}>
+                                  <UsersIcon className={`h-5 w-5 ${
+                                    isNew ? 'text-green-600' : 'text-blue-600'
+                                  }`} />
+                                </div>
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2">
+                                  <p className={`text-sm font-semibold ${
+                                    isNew ? 'text-green-800' : 'text-blue-800'
+                                  }`}>
+                                    {user.fullName || 'Không có tên'}
+                                  </p>
+                                  {isNew && (
+                                    <span className="inline-flex px-2 py-0.5 text-xs font-bold rounded-full bg-green-200 text-green-800">
+                                      MỚI
+                                    </span>
+                                  )}
+                                  {user.role === 'admin' && (
+                                    <span className="inline-flex px-2 py-0.5 text-xs font-bold rounded-full bg-purple-200 text-purple-800">
+                                      ADMIN
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-600 mt-1">
+                                  📧 {user.email}
+                                </p>
+                                <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                                  <span>
+                                    📅 Đăng ký: {registrationDate.toLocaleDateString('vi-VN', {
+                                      year: 'numeric',
+                                      month: '2-digit',
+                                      day: '2-digit',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </span>
+                                  <span>
+                                    ⏱️ {diffDays === 0 ? 'Hôm nay' : `${diffDays} ngày trước`}
+                                  </span>
+                                  <span>
+                                    📊 {user.certificatesProcessed} chứng chỉ
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                user.isActive 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {user.isActive ? 'Hoạt động' : 'Khóa'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -633,7 +693,7 @@ export default function AdminDashboard() {
                   <UsersIcon className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-white">Hoạt động của {selectedUser.name}</h3>
+                  <h3 className="text-xl font-bold text-white">Hoạt động của {selectedUser.fullName}</h3>
                   <p className="text-sm text-blue-100">{selectedUser.email}</p>
                 </div>
               </div>

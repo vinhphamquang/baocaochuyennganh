@@ -105,4 +105,75 @@ router.get('/me', auth, async (req, res) => {
   }
 })
 
+// Update user profile
+router.put('/profile', auth, async (req, res) => {
+  try {
+    const { fullName, email } = req.body
+
+    // Check if email is already taken by another user
+    if (email) {
+      const existingUser = await User.findOne({ email, _id: { $ne: req.userId } })
+      if (existingUser) {
+        return res.status(400).json({ message: 'Email đã được sử dụng bởi tài khoản khác' })
+      }
+    }
+
+    // Update user
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { fullName, email },
+      { new: true, runValidators: true }
+    ).select('-password')
+
+    if (!user) {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' })
+    }
+
+    res.json({ 
+      message: 'Cập nhật thông tin thành công',
+      user 
+    })
+  } catch (error) {
+    console.error('Update profile error:', error)
+    res.status(500).json({ message: 'Lỗi server khi cập nhật thông tin' })
+  }
+})
+
+// Change password
+router.put('/change-password', auth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body
+
+    // Validate input
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Vui lòng nhập đầy đủ thông tin' })
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự' })
+    }
+
+    // Get user with password
+    const user = await User.findById(req.userId)
+    if (!user) {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' })
+    }
+
+    // Check current password
+    const isPasswordValid = await user.comparePassword(currentPassword)
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Mật khẩu hiện tại không đúng' })
+    }
+
+    // Update password
+    user.password = newPassword
+    await user.save()
+
+    res.json({ message: 'Đổi mật khẩu thành công' })
+  } catch (error) {
+    console.error('Change password error:', error)
+    res.status(500).json({ message: 'Lỗi server khi đổi mật khẩu' })
+  }
+})
+
 module.exports = router

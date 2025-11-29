@@ -113,23 +113,7 @@ export default function Header({ isLoggedIn, setIsLoggedIn }: HeaderProps) {
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setUserMenuOpen(false)}
                     >
-                      📊 Dashboard
-                    </a>
-                    
-                    <a
-                      href="/dashboard"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
                       👤 Hồ sơ cá nhân
-                    </a>
-                    
-                    <a
-                      href="/dashboard"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      📜 Chứng chỉ của tôi
                     </a>
                     
                     <div className="border-t border-gray-200 mt-2 pt-2">
@@ -195,23 +179,7 @@ export default function Header({ isLoggedIn, setIsLoggedIn }: HeaderProps) {
                           className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
                           onClick={() => setMobileMenuOpen(false)}
                         >
-                          📊 Dashboard
-                        </a>
-                        
-                        <a 
-                          href="/dashboard" 
-                          className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
-                          onClick={() => setMobileMenuOpen(false)}
-                        >
                           👤 Hồ sơ cá nhân
-                        </a>
-                        
-                        <a 
-                          href="/dashboard" 
-                          className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
-                          onClick={() => setMobileMenuOpen(false)}
-                        >
-                          📜 Chứng chỉ của tôi
                         </a>
                         
                         <button

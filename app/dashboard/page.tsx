@@ -48,6 +48,12 @@ export default function Dashboard() {
   const [certificates, setCertificates] = useState<Certificate[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingCerts, setLoadingCerts] = useState(true)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editFormData, setEditFormData] = useState({ fullName: '', email: '' })
+  const [editLoading, setEditLoading] = useState(false)
+  const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false)
+  const [passwordFormData, setPasswordFormData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  const [passwordLoading, setPasswordLoading] = useState(false)
 
   useEffect(() => {
     fetchUserInfo()
@@ -109,6 +115,92 @@ export default function Dashboard() {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     router.push('/')
+  }
+
+  const openEditModal = () => {
+    if (user) {
+      setEditFormData({ fullName: user.fullName, email: user.email })
+      setEditModalOpen(true)
+    }
+  }
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setEditLoading(true)
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('http://localhost:5000/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(editFormData)
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setUser(data.user)
+        localStorage.setItem('user', JSON.stringify(data.user))
+        alert('Cập nhật thông tin thành công!')
+        setEditModalOpen(false)
+      } else {
+        alert(data.message || 'Có lỗi xảy ra')
+      }
+    } catch (error) {
+      console.error('Update profile error:', error)
+      alert('Lỗi kết nối')
+    } finally {
+      setEditLoading(false)
+    }
+  }
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (passwordFormData.newPassword !== passwordFormData.confirmPassword) {
+      alert('Mật khẩu xác nhận không khớp')
+      return
+    }
+
+    if (passwordFormData.newPassword.length < 6) {
+      alert('Mật khẩu mới phải có ít nhất 6 ký tự')
+      return
+    }
+
+    setPasswordLoading(true)
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('http://localhost:5000/api/auth/change-password', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          currentPassword: passwordFormData.currentPassword,
+          newPassword: passwordFormData.newPassword
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        alert('Đổi mật khẩu thành công!')
+        setChangePasswordModalOpen(false)
+        setPasswordFormData({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      } else {
+        alert(data.message || 'Có lỗi xảy ra')
+      }
+    } catch (error) {
+      console.error('Change password error:', error)
+      alert('Lỗi kết nối')
+    } finally {
+      setPasswordLoading(false)
+    }
   }
 
   const stats = {
@@ -198,17 +290,29 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-              <div className="text-right">
+              <div className="text-right space-y-2">
                 <div className="bg-white/20 rounded-lg px-4 py-2">
                   <p className="text-sm text-blue-100">Vai trò</p>
                   <p className="text-xl font-bold">
                     {user.role === 'admin' ? '👑 Admin' : '👤 User'}
                   </p>
                 </div>
+                <button
+                  onClick={openEditModal}
+                  className="w-full text-sm bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
+                >
+                  ✏️ Chỉnh sửa hồ sơ
+                </button>
+                <button
+                  onClick={() => setChangePasswordModalOpen(true)}
+                  className="w-full text-sm bg-white/20 text-white px-4 py-2 rounded-lg hover:bg-white/30 transition-colors"
+                >
+                  🔒 Đổi mật khẩu
+                </button>
                 {user.role === 'admin' && (
                   <button
                     onClick={() => router.push('/admin')}
-                    className="mt-2 text-sm bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
+                    className="w-full text-sm bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
                   >
                     Vào Admin Panel
                   </button>
@@ -417,6 +521,149 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Edit Profile Modal */}
+      {editModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <h3 className="text-xl font-bold text-white">✏️ Chỉnh sửa hồ sơ</h3>
+              <button
+                onClick={() => setEditModalOpen(false)}
+                className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <form onSubmit={handleUpdateProfile} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Họ và tên
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.fullName}
+                  onChange={(e) => setEditFormData({ ...editFormData, fullName: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={editFormData.email}
+                  onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  required
+                />
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setEditModalOpen(false)}
+                  className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors font-medium"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-400 transition-colors font-medium"
+                >
+                  {editLoading ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {changePasswordModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <h3 className="text-xl font-bold text-white">🔒 Đổi mật khẩu</h3>
+              <button
+                onClick={() => setChangePasswordModalOpen(false)}
+                className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <form onSubmit={handleChangePassword} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Mật khẩu hiện tại
+                </label>
+                <input
+                  type="password"
+                  value={passwordFormData.currentPassword}
+                  onChange={(e) => setPasswordFormData({ ...passwordFormData, currentPassword: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Mật khẩu mới
+                </label>
+                <input
+                  type="password"
+                  value={passwordFormData.newPassword}
+                  onChange={(e) => setPasswordFormData({ ...passwordFormData, newPassword: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                  required
+                  minLength={6}
+                />
+                <p className="text-xs text-gray-500 mt-1">Tối thiểu 6 ký tự</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Xác nhận mật khẩu mới
+                </label>
+                <input
+                  type="password"
+                  value={passwordFormData.confirmPassword}
+                  onChange={(e) => setPasswordFormData({ ...passwordFormData, confirmPassword: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                  required
+                />
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setChangePasswordModalOpen(false)}
+                  className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors font-medium"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={passwordLoading}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-400 transition-colors font-medium"
+                >
+                  {passwordLoading ? 'Đang đổi...' : 'Đổi mật khẩu'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
