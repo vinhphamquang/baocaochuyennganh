@@ -158,6 +158,49 @@ export default function UploadSection() {
     return orgMap[certificateType] || 'Unknown'
   }
 
+  const saveToHistory = async () => {
+    if (!extractedData || files.length === 0) return
+
+    const token = localStorage.getItem('token')
+    if (!token) {
+      toast.error('Vui lòng đăng nhập để lưu lịch sử')
+      return
+    }
+
+    try {
+      const formData = new FormData()
+      formData.append('certificate', files[0])
+      formData.append('extractedData', JSON.stringify({
+        fullName: extractedData.fullName,
+        dateOfBirth: extractedData.dateOfBirth,
+        certificateType: extractedData.certificateType,
+        certificateNumber: extractedData.certificateNumber,
+        examDate: extractedData.testDate,
+        issueDate: extractedData.issueDate,
+        scores: extractedData.scores,
+        rawText: ''
+      }))
+
+      const response = await fetch('http://localhost:5000/api/certificates/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      })
+
+      if (response.ok) {
+        toast.success('Đã lưu vào lịch sử!')
+      } else {
+        const data = await response.json()
+        toast.error(data.message || 'Lỗi khi lưu')
+      }
+    } catch (error) {
+      console.error('Save error:', error)
+      toast.error('Lỗi khi lưu lịch sử')
+    }
+  }
+
   const exportData = (format: 'json' | 'csv' | 'excel') => {
     if (!extractedData) return
     
@@ -435,26 +478,44 @@ export default function UploadSection() {
                 </div>
               </div>
 
-              {/* Export Buttons */}
-              <div className="mt-8 flex flex-wrap gap-4 justify-center">
-                <button
-                  onClick={() => exportData('json')}
-                  className="btn-secondary"
-                >
-                  Xuất JSON
-                </button>
-                <button
-                  onClick={() => exportData('csv')}
-                  className="btn-secondary"
-                >
-                  Xuất CSV
-                </button>
-                <button
-                  onClick={() => exportData('excel')}
-                  className="btn-primary"
-                >
-                  Xuất Excel
-                </button>
+              {/* Action Buttons */}
+              <div className="mt-8 space-y-4">
+                {/* Save to History Button - Only show if logged in */}
+                {localStorage.getItem('token') && (
+                  <div className="flex justify-center">
+                    <button
+                      onClick={saveToHistory}
+                      className="btn-primary px-8 py-3 text-lg flex items-center gap-2"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                      </svg>
+                      Lưu vào lịch sử
+                    </button>
+                  </div>
+                )}
+                
+                {/* Export Buttons */}
+                <div className="flex flex-wrap gap-4 justify-center">
+                  <button
+                    onClick={() => exportData('json')}
+                    className="btn-secondary"
+                  >
+                    Xuất JSON
+                  </button>
+                  <button
+                    onClick={() => exportData('csv')}
+                    className="btn-secondary"
+                  >
+                    Xuất CSV
+                  </button>
+                  <button
+                    onClick={() => exportData('excel')}
+                    className="btn-primary"
+                  >
+                    Xuất Excel
+                  </button>
+                </div>
               </div>
             </div>
           )}

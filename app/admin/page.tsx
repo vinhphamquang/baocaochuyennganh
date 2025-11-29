@@ -58,6 +58,9 @@ export default function AdminDashboard() {
   const [noAuth, setNoAuth] = useState(false)
   const [loginData, setLoginData] = useState({ email: '', password: '' })
   const [loginLoading, setLoginLoading] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [userActivities, setUserActivities] = useState<Certificate[]>([])
+  const [loadingActivities, setLoadingActivities] = useState(false)
 
   // Fetch data từ API
   useEffect(() => {
@@ -180,6 +183,37 @@ export default function AdminDashboard() {
       console.error('Delete user error:', error)
       toast.error('Lỗi khi xóa người dùng')
     }
+  }
+
+  const viewUserActivities = async (user: User) => {
+    console.log('👤 Viewing activities for user:', user)
+    console.log('📋 All certificates:', certificates)
+    
+    setSelectedUser(user)
+    setLoadingActivities(true)
+    
+    try {
+      // Lọc chứng chỉ của user này - so sánh cả string và object
+      const userCerts = certificates.filter(cert => {
+        const certUserId = typeof cert.userId === 'object' ? (cert.userId as any)._id : cert.userId
+        const userId = user._id
+        console.log(`Comparing: ${certUserId} === ${userId}`, certUserId === userId)
+        return certUserId === userId || cert.userId === userId || String(cert.userId) === String(userId)
+      })
+      
+      console.log('✅ Filtered certificates for user:', userCerts)
+      setUserActivities(userCerts)
+    } catch (error) {
+      console.error('Error loading activities:', error)
+      toast.error('Lỗi khi tải hoạt động')
+    } finally {
+      setLoadingActivities(false)
+    }
+  }
+
+  const closeActivityModal = () => {
+    setSelectedUser(null)
+    setUserActivities([])
   }
 
   // Nếu chưa đăng nhập
@@ -519,13 +553,16 @@ export default function AdminDashboard() {
                           {user.isActive ? 'Hoạt động' : 'Không hoạt động'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button className="text-primary-600 hover:text-primary-900 mr-4">
-                          Chỉnh sửa
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
+                        <button 
+                          onClick={() => viewUserActivities(user)}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          Xem hoạt động
                         </button>
                         <button 
                           onClick={() => handleToggleUserStatus(user._id, user.isActive)}
-                          className="text-red-600 hover:text-red-900"
+                          className="text-orange-600 hover:text-orange-900"
                         >
                           {user.isActive ? 'Khóa' : 'Kích hoạt'}
                         </button>
@@ -576,6 +613,134 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {/* User Activity Modal */}
+      {selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                  <UsersIcon className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Hoạt động của {selectedUser.name}</h3>
+                  <p className="text-sm text-blue-100">{selectedUser.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={closeActivityModal}
+                className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {/* User Stats */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-blue-50 rounded-lg p-4 text-center">
+                  <p className="text-sm text-blue-600 font-medium">Tổng chứng chỉ</p>
+                  <p className="text-3xl font-bold text-blue-700">{userActivities.length}</p>
+                </div>
+                <div className="bg-green-50 rounded-lg p-4 text-center">
+                  <p className="text-sm text-green-600 font-medium">Thành công</p>
+                  <p className="text-3xl font-bold text-green-700">
+                    {userActivities.filter(c => c.processingStatus === 'completed').length}
+                  </p>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-4 text-center">
+                  <p className="text-sm text-purple-600 font-medium">Ngày tham gia</p>
+                  <p className="text-sm font-bold text-purple-700">
+                    {new Date(selectedUser.createdAt).toLocaleDateString('vi-VN')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Activities List */}
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">Lịch sử xử lý chứng chỉ</h4>
+                
+                {loadingActivities ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-2 text-gray-500">Đang tải...</p>
+                  </div>
+                ) : userActivities.length === 0 ? (
+                  <div className="text-center py-8">
+                    <DocumentTextIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">Chưa có hoạt động nào</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {userActivities.map((cert) => (
+                      <div key={cert._id} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start space-x-3 flex-1">
+                            <DocumentTextIcon className="h-6 w-6 text-blue-600 mt-1" />
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2">
+                                <p className="font-medium text-gray-900">{cert.fileName}</p>
+                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                  cert.processingStatus === 'completed' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : cert.processingStatus === 'processing'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {cert.processingStatus === 'completed' ? 'Hoàn thành' : 
+                                   cert.processingStatus === 'processing' ? 'Đang xử lý' : 'Thất bại'}
+                                </span>
+                              </div>
+                              <div className="mt-1 space-y-1">
+                                <p className="text-sm text-gray-600">
+                                  <span className="font-medium">Loại:</span> {cert.certificateType}
+                                </p>
+                                {cert.extractedData?.fullName && (
+                                  <p className="text-sm text-gray-600">
+                                    <span className="font-medium">Họ tên:</span> {cert.extractedData.fullName}
+                                  </p>
+                                )}
+                                {cert.extractedData?.certificateNumber && (
+                                  <p className="text-sm text-gray-600">
+                                    <span className="font-medium">Số chứng chỉ:</span> {cert.extractedData.certificateNumber}
+                                  </p>
+                                )}
+                                {cert.extractedData?.scores?.overall && (
+                                  <p className="text-sm text-gray-600">
+                                    <span className="font-medium">Điểm:</span> {cert.extractedData.scores.overall}
+                                  </p>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-500 mt-2">
+                                {new Date(cert.createdAt).toLocaleString('vi-VN')}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-gray-50 px-6 py-4 flex justify-end">
+              <button
+                onClick={closeActivityModal}
+                className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
