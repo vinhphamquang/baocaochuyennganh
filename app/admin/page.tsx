@@ -68,6 +68,7 @@ export default function AdminDashboard() {
     try {
       setLoading(true)
       const token = localStorage.getItem('token')
+      const userStr = localStorage.getItem('user')
       
       if (!token) {
         setLoading(false)
@@ -75,12 +76,34 @@ export default function AdminDashboard() {
         return
       }
 
+      // Kiểm tra vai trò admin
+      if (userStr) {
+        const user = JSON.parse(userStr)
+        if (user.role !== 'admin') {
+          toast.error('Bạn không có quyền truy cập trang này. Đang chuyển về trang chủ...')
+          setTimeout(() => {
+            window.location.href = '/'
+          }, 2000)
+          setLoading(false)
+          return
+        }
+      }
+
       // Fetch statistics
       const statsRes = await fetch('http://localhost:5000/api/admin/statistics', {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       
-      if (statsRes.ok) {
+      if (!statsRes.ok) {
+        if (statsRes.status === 403) {
+          toast.error('Bạn không có quyền truy cập. Đang chuyển về trang chủ...')
+          setTimeout(() => {
+            window.location.href = '/'
+          }, 2000)
+          setLoading(false)
+          return
+        }
+      } else {
         const statsData = await statsRes.json()
         setStatistics(statsData.statistics)
       }
@@ -175,7 +198,13 @@ export default function AdminDashboard() {
 
       if (response.ok) {
         if (data.user.role !== 'admin') {
-          toast.error('Chỉ admin mới có thể truy cập')
+          toast.error('Chỉ admin mới có thể truy cập. Đang chuyển về trang chủ...')
+          // Lưu token và user để giữ trạng thái đăng nhập
+          localStorage.setItem('token', data.token)
+          localStorage.setItem('user', JSON.stringify(data.user))
+          setTimeout(() => {
+            window.location.href = '/'
+          }, 2000)
           return
         }
         

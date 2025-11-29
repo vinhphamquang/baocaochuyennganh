@@ -10,7 +10,8 @@ import {
   UserCircleIcon,
   EnvelopeIcon,
   CalendarIcon,
-  ArrowRightOnRectangleIcon
+  ArrowRightOnRectangleIcon,
+  HomeIcon
 } from '@heroicons/react/24/outline'
 
 interface User {
@@ -153,6 +154,13 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
+              <button
+                onClick={() => router.push('/')}
+                className="flex items-center space-x-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+              >
+                <HomeIcon className="h-5 w-5" />
+                <span>Trang chủ</span>
+              </button>
               <button
                 onClick={handleLogout}
                 className="flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
