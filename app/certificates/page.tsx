@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import Header from '../components/Header'
 import SupportedCertificates from '../components/SupportedCertificates'
-import Testimonials from '../components/Testimonials'
 import Footer from '../components/Footer'
 
 export default function CertificatesPage() {
@@ -35,7 +34,6 @@ export default function CertificatesPage() {
           </div>
         </div>
         <SupportedCertificates />
-        <Testimonials />
       </main>
       <Footer />
     </div>

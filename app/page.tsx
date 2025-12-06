@@ -69,6 +69,9 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Testimonials Section */}
+        <Testimonials />
+
         {/* CTA Section */}
         <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600">
           <div className="mx-auto max-w-7xl px-6 lg:px-8 text-center">
