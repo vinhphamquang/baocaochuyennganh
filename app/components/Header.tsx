@@ -15,7 +15,28 @@ export default function Header({ isLoggedIn, setIsLoggedIn }: HeaderProps) {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
+  const [isInitialized, setIsInitialized] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Kiểm tra trạng thái đăng nhập ngay khi mount
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    const userData = localStorage.getItem('user')
+    
+    if (token && userData) {
+      try {
+        setUser(JSON.parse(userData))
+        setIsLoggedIn(true)
+      } catch (error) {
+        console.error('Error parsing user data:', error)
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+      }
+    }
+    
+    // Đánh dấu đã khởi tạo xong
+    setIsInitialized(true)
+  }, [setIsLoggedIn])
 
   useEffect(() => {
     // Lắng nghe sự kiện mở modal đăng nhập từ các component khác
@@ -46,7 +67,11 @@ export default function Header({ isLoggedIn, setIsLoggedIn }: HeaderProps) {
     if (isLoggedIn) {
       const userData = localStorage.getItem('user')
       if (userData) {
-        setUser(JSON.parse(userData))
+        try {
+          setUser(JSON.parse(userData))
+        } catch (error) {
+          console.error('Error parsing user data:', error)
+        }
       }
     } else {
       setUser(null)
@@ -88,38 +113,44 @@ export default function Header({ isLoggedIn, setIsLoggedIn }: HeaderProps) {
           </div>
           
           {/* Desktop Navigation */}
-          <div className="hidden lg:flex lg:gap-x-8">
-            <a href="/" className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600 transition-colors">
+          <div className="hidden lg:flex lg:gap-x-3">
+            <a href="/" className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 hover:text-primary-700 transition-all duration-200 shadow-sm hover:shadow-md">
               Trang chủ
             </a>
-            <a href="/features" className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600 transition-colors">
+            <a href="/features" className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 hover:text-primary-700 transition-all duration-200 shadow-sm hover:shadow-md">
               Tính năng
             </a>
-            <a href="/how-it-works" className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600 transition-colors">
+            <a href="/how-it-works" className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 hover:text-primary-700 transition-all duration-200 shadow-sm hover:shadow-md">
               Cách hoạt động
             </a>
-            <a href="/extract" className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600 transition-colors">
+            <a href="/extract" className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-primary-600 to-primary-700 border-2 border-primary-600 rounded-lg hover:from-primary-700 hover:to-primary-800 hover:shadow-lg transition-all duration-200 shadow-md">
               Trích xuất
             </a>
-            <a href="/certificates" className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600 transition-colors">
+            <a href="/certificates" className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 hover:text-primary-700 transition-all duration-200 shadow-sm hover:shadow-md">
               Chứng chỉ
             </a>
           </div>
           
           <div className="hidden lg:flex lg:flex-1 lg:justify-end lg:gap-x-4 lg:items-center">
-            {isLoggedIn && user ? (
+            {!isInitialized ? (
+              // Loading skeleton
+              <div className="flex gap-x-4 items-center">
+                <div className="h-10 w-24 bg-gray-200 rounded-lg animate-pulse"></div>
+                <div className="h-10 w-24 bg-gray-200 rounded-lg animate-pulse"></div>
+              </div>
+            ) : isLoggedIn && user ? (
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center space-x-2 text-sm font-semibold text-gray-900 hover:text-primary-600 focus:outline-none"
+                  className="flex items-center space-x-2 px-4 py-2 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 hover:text-primary-700 transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none"
                 >
-                  <UserCircleIcon className="h-8 w-8 text-gray-600" />
+                  <UserCircleIcon className="h-6 w-6" />
                   <span>{user.fullName || user.name}</span>
                   <ChevronDownIcon className="h-4 w-4" />
                 </button>
 
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50 animate-fadeIn">
                     <div className="px-4 py-3 border-b border-gray-200">
                       <p className="text-sm font-semibold text-gray-900">{user.fullName || user.name}</p>
                       <p className="text-xs text-gray-500 truncate">{user.email}</p>
@@ -148,13 +179,13 @@ export default function Header({ isLoggedIn, setIsLoggedIn }: HeaderProps) {
               <>
                 <button
                   onClick={() => handleAuthClick('login')}
-                  className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600"
+                  className="px-5 py-2 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg hover:border-primary-500 hover:bg-primary-50 hover:text-primary-700 transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   Đăng nhập
                 </button>
                 <button
                   onClick={() => handleAuthClick('register')}
-                  className="btn-primary text-sm"
+                  className="px-5 py-2 text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-purple-600 border-2 border-transparent rounded-lg hover:from-blue-700 hover:to-purple-700 hover:shadow-lg transition-all duration-200 shadow-md transform hover:scale-105"
                 >
                   Đăng ký
                 </button>
@@ -222,7 +253,12 @@ export default function Header({ isLoggedIn, setIsLoggedIn }: HeaderProps) {
                   </div>
 
                   <div className="py-6">
-                    {isLoggedIn && user ? (
+                    {!isInitialized ? (
+                      <div className="space-y-3">
+                        <div className="h-12 bg-gray-200 rounded-lg animate-pulse"></div>
+                        <div className="h-12 bg-gray-200 rounded-lg animate-pulse"></div>
+                      </div>
+                    ) : isLoggedIn && user ? (
                       <>
                         <div className="px-3 py-2 mb-4 bg-gray-50 rounded-lg">
                           <p className="text-sm font-semibold text-gray-900">{user.fullName || user.name}</p>

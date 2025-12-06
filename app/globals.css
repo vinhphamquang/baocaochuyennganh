@@ -33,3 +33,35 @@ body {
 .btn-secondary {
   @apply bg-white hover:bg-gray-50 text-primary-600 border border-primary-600 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
 }
+
+/* Smooth page transitions */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* Page transition */
+@keyframes pageTransition {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-transition {
+  animation: pageTransition 0.3s ease-out;
+}

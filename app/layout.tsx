@@ -18,7 +18,9 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body className={inter.className}>
-        {children}
+        <div className="page-transition">
+          {children}
+        </div>
         <Toaster position="top-right" />
       </body>
     </html>
