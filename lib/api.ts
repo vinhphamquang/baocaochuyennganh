@@ -150,20 +150,28 @@ export interface Comment {
 
 export const commentAPI = {
   getAll: async () => {
-    const response = await fetch(`${API_URL}/comments`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
+    try {
+      const response = await fetch(`${API_URL}/comments`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
 
-    const result = await response.json()
+      const result = await response.json()
 
-    if (!response.ok) {
-      throw new Error(result.message || 'Lỗi khi lấy danh sách bình luận')
+      if (!response.ok) {
+        throw new Error(result.message || 'Lỗi khi lấy danh sách bình luận')
+      }
+
+      return result
+    } catch (error: any) {
+      // Xử lý lỗi network
+      if (error.message.includes('fetch')) {
+        throw new Error('Không thể kết nối đến server. Vui lòng kiểm tra xem server đã chạy chưa.')
+      }
+      throw error
     }
-
-    return result
   },
 
   create: async (data: CommentData, token: string) => {

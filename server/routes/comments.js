@@ -70,6 +70,62 @@ router.post('/', auth.auth, async (req, res) => {
   }
 });
 
+// Sửa bình luận của chính mình
+router.put('/:id', auth.auth, async (req, res) => {
+  try {
+    const { content, rating } = req.body;
+    const comment = await Comment.findById(req.params.id);
+
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy bình luận'
+      });
+    }
+
+    // Chỉ cho phép sửa bình luận của chính mình
+    if (comment.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bạn không có quyền sửa bình luận này'
+      });
+    }
+
+    // Validate
+    if (content && !content.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nội dung bình luận không được để trống'
+      });
+    }
+
+    if (rating && (rating < 1 || rating > 5)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Đánh giá phải từ 1 đến 5 sao'
+      });
+    }
+
+    // Cập nhật bình luận
+    if (content) comment.content = content.trim();
+    if (rating) comment.rating = parseInt(rating);
+    
+    await comment.save();
+
+    res.json({
+      success: true,
+      message: 'Đã cập nhật bình luận',
+      data: comment
+    });
+  } catch (error) {
+    console.error('Error updating comment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi cập nhật bình luận'
+    });
+  }
+});
+
 // Xóa bình luận của chính mình
 router.delete('/:id', auth.auth, async (req, res) => {
   try {

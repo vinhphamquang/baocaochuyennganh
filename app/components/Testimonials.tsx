@@ -47,7 +47,9 @@ export default function Testimonials() {
       }
     } catch (error: any) {
       console.error('Error loading comments:', error)
-      toast.error('Không thể tải bình luận')
+      // Hiển thị thông báo lỗi chi tiết hơn
+      const errorMessage = error.message || 'Không thể tải bình luận. Vui lòng kiểm tra kết nối server.'
+      toast.error(errorMessage)
     } finally {
       setIsLoading(false)
     }
