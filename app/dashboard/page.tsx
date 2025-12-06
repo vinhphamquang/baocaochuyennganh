@@ -6,7 +6,6 @@ import {
   DocumentTextIcon, 
   ClockIcon, 
   ChartBarIcon,
-  ArrowDownTrayIcon,
   UserCircleIcon,
   EnvelopeIcon,
   CalendarIcon,
@@ -333,14 +332,6 @@ export default function Dashboard() {
             <p className="text-sm text-gray-600">Upload và trích xuất thông tin</p>
           </button>
           
-          <button
-            onClick={() => router.push('/export')}
-            className="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow text-left"
-          >
-            <ArrowDownTrayIcon className="h-8 w-8 text-green-600 mb-2" />
-            <h3 className="font-semibold text-gray-900">Xuất dữ liệu</h3>
-            <p className="text-sm text-gray-600">Tải về JSON, CSV, Excel</p>
-          </button>
           
           <button
             onClick={() => window.location.reload()}
@@ -504,13 +495,9 @@ export default function Dashboard() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         {cert.processingStatus === 'completed' && (
-                          <button 
-                            onClick={() => router.push(`/export`)}
-                            className="text-primary-600 hover:text-primary-900 flex items-center"
-                          >
-                            <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
-                            Xuất
-                          </button>
+                          <span className="text-green-600 text-sm">
+                            ✓ Hoàn thành
+                          </span>
                         )}
                       </td>
                     </tr>
