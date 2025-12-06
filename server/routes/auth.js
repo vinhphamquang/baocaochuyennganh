@@ -2,6 +2,7 @@ const express = require('express')
 const jwt = require('jsonwebtoken')
 const User = require('../models/User')
 const { auth } = require('../middleware/auth')
+const { sendResetPasswordEmail, sendWelcomeEmail } = require('../utils/email')
 
 const router = express.Router()
 
@@ -173,6 +174,89 @@ router.put('/change-password', auth, async (req, res) => {
   } catch (error) {
     console.error('Change password error:', error)
     res.status(500).json({ message: 'Lỗi server khi đổi mật khẩu' })
+  }
+})
+
+// Forgot password - Send reset link
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body
+
+    if (!email) {
+      return res.status(400).json({ message: 'Vui lòng nhập email' })
+    }
+
+    // Find user by email
+    const user = await User.findOne({ email })
+    if (!user) {
+      // Don't reveal if email exists or not for security
+      return res.json({ message: 'Nếu email tồn tại, link đặt lại mật khẩu đã được gửi' })
+    }
+
+    // Generate reset token (in production, use crypto.randomBytes)
+    const resetToken = jwt.sign(
+      { userId: user._id, purpose: 'reset-password' },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '1h' }
+    )
+
+    // In production, send email with reset link
+    // For now, just log the link
+    const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`
+    console.log('Reset password link:', resetLink)
+    console.log('For user:', email)
+
+    res.json({ 
+      message: 'Link đặt lại mật khẩu đã được gửi đến email của bạn',
+      // Remove this in production
+      resetLink: resetLink
+    })
+  } catch (error) {
+    console.error('Forgot password error:', error)
+    res.status(500).json({ message: 'Lỗi server' })
+  }
+})
+
+// Reset password with token
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: 'Vui lòng nhập đầy đủ thông tin' })
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự' })
+    }
+
+    // Verify token
+    let decoded
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key')
+    } catch (error) {
+      return res.status(400).json({ message: 'Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn' })
+    }
+
+    // Check if token is for password reset
+    if (decoded.purpose !== 'reset-password') {
+      return res.status(400).json({ message: 'Token không hợp lệ' })
+    }
+
+    // Find user
+    const user = await User.findById(decoded.userId)
+    if (!user) {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' })
+    }
+
+    // Update password
+    user.password = newPassword
+    await user.save()
+
+    res.json({ message: 'Đặt lại mật khẩu thành công' })
+  } catch (error) {
+    console.error('Reset password error:', error)
+    res.status(500).json({ message: 'Lỗi server' })
   }
 })
 

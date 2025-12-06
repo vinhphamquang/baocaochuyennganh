@@ -87,7 +87,24 @@ export default function Header({ isLoggedIn, setIsLoggedIn }: HeaderProps) {
             </button>
           </div>
           
-
+          {/* Desktop Navigation */}
+          <div className="hidden lg:flex lg:gap-x-8">
+            <a href="/" className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600 transition-colors">
+              Trang chủ
+            </a>
+            <a href="/features" className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600 transition-colors">
+              Tính năng
+            </a>
+            <a href="/how-it-works" className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600 transition-colors">
+              Cách hoạt động
+            </a>
+            <a href="/extract" className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600 transition-colors">
+              Trích xuất
+            </a>
+            <a href="/certificates" className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600 transition-colors">
+              Chứng chỉ
+            </a>
+          </div>
           
           <div className="hidden lg:flex lg:flex-1 lg:justify-end lg:gap-x-4 lg:items-center">
             {isLoggedIn && user ? (
@@ -165,6 +182,44 @@ export default function Header({ isLoggedIn, setIsLoggedIn }: HeaderProps) {
               </div>
               <div className="mt-6 flow-root">
                 <div className="-my-6 divide-y divide-gray-500/10">
+                  {/* Mobile Navigation Links */}
+                  <div className="space-y-2 py-6">
+                    <a 
+                      href="/" 
+                      className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      🏠 Trang chủ
+                    </a>
+                    <a 
+                      href="/features" 
+                      className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      ⚡ Tính năng
+                    </a>
+                    <a 
+                      href="/how-it-works" 
+                      className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      🔧 Cách hoạt động
+                    </a>
+                    <a 
+                      href="/extract" 
+                      className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      📤 Trích xuất
+                    </a>
+                    <a 
+                      href="/certificates" 
+                      className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      📜 Chứng chỉ
+                    </a>
+                  </div>
 
                   <div className="py-6">
                     {isLoggedIn && user ? (
