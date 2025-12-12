@@ -59,24 +59,112 @@ export default function UploadSection() {
     setExtractedData(null)
   }
 
+  // Validate image quality before OCR
+  const validateImage = async (file: File): Promise<{ isValid: boolean; message?: string }> => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      
+      img.onload = () => {
+        canvas.width = img.width
+        canvas.height = img.height
+        ctx?.drawImage(img, 0, 0)
+        
+        // Check image dimensions
+        if (img.width < 800 || img.height < 600) {
+          resolve({
+            isValid: false,
+            message: 'Ảnh có độ phân giải quá thấp. Vui lòng sử dụng ảnh có kích thước ít nhất 800x600 pixels.'
+          })
+          return
+        }
+        
+        // Check if image is too blurry (basic check)
+        const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height)
+        if (imageData) {
+          const data = imageData.data
+          let totalVariance = 0
+          let pixelCount = 0
+          
+          // Sample every 10th pixel to check variance (blur detection)
+          for (let i = 0; i < data.length; i += 40) { // RGBA = 4 bytes, so every 10th pixel
+            const r = data[i]
+            const g = data[i + 1]
+            const b = data[i + 2]
+            const gray = 0.299 * r + 0.587 * g + 0.114 * b
+            
+            if (i > 40) {
+              const prevGray = 0.299 * data[i - 40] + 0.587 * data[i - 39] + 0.114 * data[i - 38]
+              totalVariance += Math.abs(gray - prevGray)
+            }
+            pixelCount++
+          }
+          
+          const avgVariance = totalVariance / pixelCount
+          
+          if (avgVariance < 5) {
+            resolve({
+              isValid: false,
+              message: 'Ảnh có vẻ bị mờ hoặc thiếu độ tương phản. Vui lòng sử dụng ảnh rõ nét hơn.'
+            })
+            return
+          }
+        }
+        
+        resolve({ isValid: true })
+      }
+      
+      img.onerror = () => {
+        resolve({
+          isValid: false,
+          message: 'Không thể đọc file ảnh. Vui lòng kiểm tra định dạng file.'
+        })
+      }
+      
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
   const processFile = async () => {
     if (files.length === 0) {
       toast.error('Vui lòng chọn file để xử lý')
       return
     }
 
+    const file = files[0]
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Chỉ hỗ trợ file ảnh (JPG, PNG). PDF sẽ được hỗ trợ trong phiên bản sau.')
+      return
+    }
+
     setIsProcessing(true)
-    setOcrProgress({ status: 'Đang khởi tạo...', progress: 0 })
+    setOcrProgress({ status: 'Đang kiểm tra chất lượng ảnh...', progress: 0.1 })
     
     try {
+      // Validate image quality first
+      const validation = await validateImage(file)
+      if (!validation.isValid) {
+        toast.error(validation.message || 'Ảnh không đạt yêu cầu chất lượng')
+        setIsProcessing(false)
+        setOcrProgress(null)
+        return
+      }
+
       // Xử lý OCR với Tesseract.js
       toast.loading('Đang đọc văn bản từ chứng chỉ...', { id: 'ocr' })
+      setOcrProgress({ status: 'Ảnh đạt yêu cầu, bắt đầu OCR...', progress: 0.2 })
       
-      console.log('🔍 Bắt đầu OCR cho file:', files[0].name)
+      console.log('🔍 Bắt đầu OCR cho file:', file.name)
       
-      const ocrData = await processImage(files[0], (progress) => {
+      const ocrData = await processImage(file, (progress) => {
         console.log('📊 OCR Progress:', progress)
-        setOcrProgress(progress)
+        setOcrProgress({
+          ...progress,
+          progress: 0.2 + (progress.progress * 0.8) // Scale progress from 20% to 100%
+        })
       })
 
       console.log('✅ Dữ liệu OCR:', ocrData)
@@ -85,30 +173,50 @@ export default function UploadSection() {
       const hasData = ocrData.fullName || ocrData.certificateNumber || ocrData.certificateType
       
       if (!hasData) {
-        console.warn('⚠️ OCR không trích xuất được thông tin. Hiển thị raw text...')
-        console.log('📄 Raw text:', ocrData.rawText)
+        console.warn('⚠️ OCR không trích xuất được thông tin. Raw text:', ocrData.rawText?.substring(0, 200))
         
-        // Hiển thị thông báo
-        toast.error('Không thể trích xuất thông tin từ ảnh. Vui lòng thử ảnh rõ nét hơn.', { id: 'ocr' })
+        // Phân tích lý do thất bại
+        const rawText = ocrData.rawText || ''
+        let errorMessage = 'Không thể trích xuất thông tin từ ảnh. '
+        let suggestions = []
         
-        // Vẫn hiển thị form với raw text để user có thể nhập thủ công
-        const emptyData: ExtractedData = {
-          fullName: '',
-          dateOfBirth: '',
-          certificateType: 'Unknown',
-          testDate: '',
-          issueDate: '',
-          certificateNumber: '',
-          scores: {
-            overall: '',
-            listening: '',
-            reading: '',
-            writing: '',
-            speaking: ''
-          },
-          issuingOrganization: ''
+        if (rawText.length < 50) {
+          errorMessage += 'OCR đọc được rất ít văn bản.'
+          suggestions.push('Kiểm tra ảnh có đủ rõ nét không')
+          suggestions.push('Đảm bảo ánh sáng đều, không bị tối')
+          suggestions.push('Chụp thẳng góc, không bị nghiêng')
+        } else if (!rawText.match(/[A-Z]{2,}/)) {
+          errorMessage += 'Không tìm thấy thông tin chứng chỉ.'
+          suggestions.push('Đảm bảo ảnh chứa chứng chỉ ngoại ngữ')
+          suggestions.push('Thử với ảnh chất lượng cao hơn')
+        } else {
+          errorMessage += 'OCR đọc được văn bản nhưng không nhận diện được định dạng chứng chỉ.'
+          suggestions.push('Thử với ảnh rõ nét hơn')
+          suggestions.push('Đảm bảo toàn bộ chứng chỉ nằm trong khung ảnh')
         }
-        setExtractedData(emptyData)
+        
+        // Hiển thị thông báo chi tiết
+        toast.error(
+          <div className="text-sm">
+            <p className="font-semibold mb-2">{errorMessage}</p>
+            <p className="text-xs text-gray-600 mb-2">Gợi ý:</p>
+            <ul className="text-xs text-gray-600 list-disc list-inside space-y-1">
+              {suggestions.map((suggestion, index) => (
+                <li key={index}>{suggestion}</li>
+              ))}
+            </ul>
+          </div>,
+          { 
+            id: 'ocr',
+            duration: 8000,
+            style: {
+              maxWidth: '400px'
+            }
+          }
+        )
+        
+        setIsProcessing(false)
+        setOcrProgress(null)
         return
       }
       
@@ -262,8 +370,34 @@ export default function UploadSection() {
                 {isDragActive ? 'Thả file vào đây...' : 'Kéo thả file hoặc click để chọn'}
               </p>
               <p className="mt-2 text-sm text-gray-600">
-                PNG, JPG, PDF tối đa 10MB
+                PNG, JPG tối đa 10MB
               </p>
+              
+              {/* Image Quality Requirements */}
+              <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 text-left max-w-md mx-auto">
+                <h4 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
+                  <span className="mr-2">💡</span>
+                  Để OCR chính xác, ảnh cần:
+                </h4>
+                <ul className="text-xs text-blue-800 space-y-1">
+                  <li className="flex items-center">
+                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></span>
+                    Độ phân giải tối thiểu 800x600 pixels
+                  </li>
+                  <li className="flex items-center">
+                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></span>
+                    Ảnh rõ nét, không bị mờ
+                  </li>
+                  <li className="flex items-center">
+                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></span>
+                    Ánh sáng đều, không bị tối
+                  </li>
+                  <li className="flex items-center">
+                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></span>
+                    Chụp thẳng góc, không nghiêng
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
 
