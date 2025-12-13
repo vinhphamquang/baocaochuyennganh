@@ -9,6 +9,7 @@ const authRoutes = require('./routes/auth')
 const certificateRoutes = require('./routes/certificates')
 const adminRoutes = require('./routes/admin')
 const commentRoutes = require('./routes/comments')
+const aiOcrRoutes = require('./routes/ai-ocr')
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -52,6 +53,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/certificates', certificateRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/comments', commentRoutes)
+app.use('/api/ai-ocr', aiOcrRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {

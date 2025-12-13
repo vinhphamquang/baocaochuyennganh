@@ -4,7 +4,10 @@ import { useState, useCallback, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { CloudArrowUpIcon, DocumentIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
-import { processImage, OCRProgress } from '@/lib/ocr'
+import { processImage, OCRProgress, testOCRParsing } from '@/lib/ocr-simple'
+import ExtractionInfo from './ExtractionInfo'
+import ProcessingStatus from './ProcessingStatus'
+import QualityMetrics from './QualityMetrics'
 
 interface ExtractedData {
   fullName: string
@@ -21,6 +24,9 @@ interface ExtractedData {
     speaking: string
   }
   issuingOrganization: string
+  confidence?: number
+  extractionMethod?: 'tesseract' | 'ai-api' | 'hybrid'
+  processingTime?: number
 }
 
 export default function UploadSection() {
@@ -159,8 +165,8 @@ export default function UploadSection() {
       
       console.log('🔍 Bắt đầu OCR cho file:', file.name)
       
-      const ocrData = await processImage(file, (progress) => {
-        console.log('📊 OCR Progress:', progress)
+      const ocrData = await processImageWithAI(file, (progress) => {
+        console.log('📊 OCR-AI Progress:', progress)
         setOcrProgress({
           ...progress,
           progress: 0.2 + (progress.progress * 0.8) // Scale progress from 20% to 100%
@@ -235,7 +241,10 @@ export default function UploadSection() {
           writing: ocrData.scores?.writing?.toString() || '',
           speaking: ocrData.scores?.speaking?.toString() || ''
         },
-        issuingOrganization: getIssuingOrg(ocrData.certificateType || '')
+        issuingOrganization: ocrData.issuingOrganization || getIssuingOrg(ocrData.certificateType || ''),
+        confidence: ocrData.confidence || 0,
+        extractionMethod: ocrData.extractionMethod || 'tesseract',
+        processingTime: ocrData.processingTime
       }
       
       console.log('📋 Dữ liệu đã chuyển đổi:', mockData)
@@ -423,22 +432,14 @@ export default function UploadSection() {
                 </div>
               ))}
               
-              {/* OCR Progress Bar */}
+              {/* AI-OCR Processing Status */}
               {ocrProgress && (
-                <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex justify-between text-sm text-blue-900 mb-2">
-                    <span className="font-medium">{ocrProgress.status}</span>
-                    <span className="font-bold">{Math.round(ocrProgress.progress * 100)}%</span>
-                  </div>
-                  <div className="w-full bg-blue-200 rounded-full h-3">
-                    <div 
-                      className="bg-blue-600 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${ocrProgress.progress * 100}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-blue-700 mt-2">
-                    💡 Đang sử dụng Tesseract.js OCR để đọc văn bản...
-                  </p>
+                <div className="mt-6">
+                  <ProcessingStatus 
+                    currentStep={ocrProgress.status}
+                    progress={ocrProgress.progress}
+                    method="hybrid"
+                  />
                 </div>
               )}
               
@@ -497,7 +498,7 @@ export default function UploadSection() {
           {/* Extracted Data */}
           {extractedData && (
             <div key={formKey} className="mt-12 bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-xl border border-gray-200 p-8">
-              <div className="flex items-center gap-3 mb-8">
+              <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -508,6 +509,21 @@ export default function UploadSection() {
                   <p className="text-sm text-gray-600">Dữ liệu từ chứng chỉ {extractedData.certificateType}</p>
                 </div>
               </div>
+              
+              {/* Quality Metrics */}
+              {extractedData.extractionMethod && (
+                <div className="mb-6">
+                  <QualityMetrics 
+                    confidence={extractedData.confidence || 0}
+                    extractionMethod={extractedData.extractionMethod}
+                    fieldsExtracted={Object.values(extractedData).filter(value => 
+                      value && (typeof value === 'string' ? value.trim() && value !== '(Chưa có dữ liệu)' : true)
+                    ).length}
+                    totalFields={8}
+                    processingTime={extractedData.processingTime}
+                  />
+                </div>
+              )}
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Họ và tên - Highlighted */}

@@ -23,28 +23,104 @@ export interface ExtractedData {
 }
 
 /**
- * Trích xuất văn bản từ ảnh sử dụng Tesseract.js OCR
+ * Tiền xử lý ảnh để cải thiện OCR
+ */
+async function preprocessImage(imageFile: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    
+    img.onload = () => {
+      // Set canvas size
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      // Draw original image
+      ctx?.drawImage(img, 0, 0);
+      
+      if (!ctx) {
+        reject(new Error('Cannot get canvas context'));
+        return;
+      }
+      
+      // Get image data
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      
+      // Apply image enhancements
+      for (let i = 0; i < data.length; i += 4) {
+        // Convert to grayscale
+        const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        
+        // Increase contrast
+        const contrast = 1.5;
+        const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+        const enhancedGray = factor * (gray - 128) + 128;
+        
+        // Apply threshold for better text recognition
+        const threshold = enhancedGray > 128 ? 255 : 0;
+        
+        data[i] = threshold;     // Red
+        data[i + 1] = threshold; // Green
+        data[i + 2] = threshold; // Blue
+        // Alpha stays the same
+      }
+      
+      // Put processed image data back
+      ctx.putImageData(imageData, 0, 0);
+      
+      // Convert to blob URL
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(URL.createObjectURL(blob));
+        } else {
+          reject(new Error('Failed to create blob'));
+        }
+      }, 'image/png');
+    };
+    
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = URL.createObjectURL(imageFile);
+  });
+}
+
+/**
+ * Trích xuất văn bản từ ảnh sử dụng Tesseract.js OCR với cải tiến
  */
 export async function extractTextFromImage(
   imageFile: File,
   onProgress?: (progress: OCRProgress) => void
 ): Promise<string> {
   try {
+    // Preprocess image for better OCR
+    onProgress?.({ status: 'Đang tiền xử lý ảnh...', progress: 0.1 });
+    const processedImageUrl = await preprocessImage(imageFile);
+    
+    onProgress?.({ status: 'Đang khởi tạo OCR engine...', progress: 0.2 });
+    
     const result = await Tesseract.recognize(
-      imageFile,
+      processedImageUrl,
       'eng+vie', // Hỗ trợ cả tiếng Anh và tiếng Việt
       {
         logger: (m) => {
           if (onProgress) {
             onProgress({
-              status: m.status,
-              progress: m.progress || 0
+              status: m.status === 'recognizing text' ? 'Đang nhận dạng văn bản...' : m.status,
+              progress: 0.2 + (m.progress || 0) * 0.8
             });
           }
-        }
+        },
+        // Cấu hình OCR tối ưu cho chứng chỉ
+        tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK,
+        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,:/|-() ',
+        preserve_interword_spaces: '1'
       }
     );
 
+    // Clean up blob URL
+    URL.revokeObjectURL(processedImageUrl);
+    
     return result.data.text;
   } catch (error) {
     console.error('OCR Error:', error);

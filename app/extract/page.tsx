@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Header from '../components/Header'
 import UploadSection from '../components/UploadSection'
+import TesseractTest from '../components/TesseractTest'
 import Footer from '../components/Footer'
 
 export default function ExtractPage() {
