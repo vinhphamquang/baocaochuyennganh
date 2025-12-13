@@ -277,32 +277,32 @@ class AIInformationExtractor {
     
     // AI-powered certificate type detection
     data.certificateType = this.detectCertificateType(cleanText);
-    if (data.certificateType) data.confidence += 15;
+    if (data.certificateType) data.confidence = (data.confidence || 0) + 15;
     
     // AI-powered name extraction
     data.fullName = this.extractName(cleanText);
-    if (data.fullName) data.confidence += 25;
+    if (data.fullName) data.confidence = (data.confidence || 0) + 25;
     
     // AI-powered date extraction
     const dates = this.extractDates(cleanText);
     data.dateOfBirth = dates.dateOfBirth;
     data.examDate = dates.examDate;
     data.issueDate = dates.issueDate;
-    if (dates.dateOfBirth) data.confidence += 15;
-    if (dates.examDate) data.confidence += 10;
+    if (dates.dateOfBirth) data.confidence = (data.confidence || 0) + 15;
+    if (dates.examDate) data.confidence = (data.confidence || 0) + 10;
     
     // AI-powered certificate number extraction
     data.certificateNumber = this.extractCertificateNumber(cleanText, data.certificateType);
-    if (data.certificateNumber) data.confidence += 20;
+    if (data.certificateNumber) data.confidence = (data.confidence || 0) + 20;
     
     // AI-powered issuing organization detection
     data.issuingOrganization = this.detectIssuingOrganization(cleanText, data.certificateType);
-    if (data.issuingOrganization) data.confidence += 10;
+    if (data.issuingOrganization) data.confidence = (data.confidence || 0) + 10;
     
     // AI-powered score extraction
     data.scores = this.extractScores(cleanText, data.certificateType);
     const scoreCount = Object.keys(data.scores || {}).length;
-    data.confidence += scoreCount * 5;
+    data.confidence = (data.confidence || 0) + scoreCount * 5;
     
     console.log(`🤖 AI Extraction confidence: ${data.confidence}%`);
     return data;

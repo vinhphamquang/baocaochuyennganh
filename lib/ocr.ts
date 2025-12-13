@@ -110,11 +110,7 @@ export async function extractTextFromImage(
               progress: 0.2 + (m.progress || 0) * 0.8
             });
           }
-        },
-        // Cấu hình OCR tối ưu cho chứng chỉ
-        tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK,
-        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,:/|-() ',
-        preserve_interword_spaces: '1'
+        }
       }
     );
 
