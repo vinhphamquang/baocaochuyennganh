@@ -40,13 +40,52 @@ app.use(limiter)
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
-// MongoDB connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/certificate-extraction', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`)
+  next()
 })
-.then(() => console.log('MongoDB connected'))
-.catch(err => console.error('MongoDB connection error:', err))
+
+// MongoDB connection with retry logic
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/certificate-extraction', {
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+      socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
+    })
+    
+    console.log(`MongoDB Atlas kết nối thành công: ${conn.connection.host}`)
+  } catch (error) {
+    console.error('Lỗi kết nối MongoDB Atlas:', error.message)
+    
+    // Retry connection after 5 seconds
+    console.log('Thử kết nối lại sau 5 giây...')
+    setTimeout(connectDB, 5000)
+  }
+}
+
+// Handle connection events
+mongoose.connection.on('connected', () => {
+  console.log('Mongoose kết nối tới MongoDB Atlas')
+})
+
+mongoose.connection.on('error', (err) => {
+  console.error('Lỗi kết nối Mongoose:', err)
+})
+
+mongoose.connection.on('disconnected', () => {
+  console.log('Mongoose ngắt kết nối khỏi MongoDB Atlas')
+})
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  await mongoose.connection.close()
+  console.log('Đã đóng kết nối MongoDB Atlas')
+  process.exit(0)
+})
+
+// Initialize connection
+connectDB()
 
 // Routes
 app.use('/api/auth', authRoutes)
