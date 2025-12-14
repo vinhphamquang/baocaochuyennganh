@@ -6,9 +6,12 @@ import {
   DocumentTextIcon, 
   ChartBarIcon,
   CogIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
+import DeleteUserModal from '@/app/components/DeleteUserModal'
+import ReportUserModal from '@/app/components/ReportUserModal'
 
 interface User {
   _id: string
@@ -44,12 +47,41 @@ interface Statistics {
 interface SystemLog {
   id: string
   timestamp: string
-  type: 'info' | 'warning' | 'error'
+  type: 'user_register' | 'user_login' | 'user_logout' | 'user_profile_update' | 
+        'certificate_upload' | 'certificate_process' | 'certificate_download' | 'certificate_delete' |
+        'comment_create' | 'comment_update' | 'comment_delete' |
+        'user_report' | 'account_lock' | 'account_unlock' | 'user_delete' |
+        'admin_action' | 'system_error' | 'security_alert' |
+        'info' | 'warning' | 'error'
   message: string
+  adminName?: string
+  targetUserName?: string
+  targetUserEmail?: string
+  details?: {
+    reason?: string
+    commentContent?: string
+    commentId?: string
+    previousStatus?: string
+    newStatus?: string
+    additionalInfo?: any
+  }
+  severity?: 'low' | 'medium' | 'high' | 'critical'
+}
+
+interface AdminComment {
+  _id: string
+  userId: string
+  userName: string
+  userEmail: string
+  content: string
+  rating: number
+  isApproved: boolean
+  createdAt: string
+  updatedAt: string
 }
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'certificates' | 'logs'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'certificates' | 'comments' | 'logs'>('overview')
   const [users, setUsers] = useState<User[]>([])
   const [certificates, setCertificates] = useState<Certificate[]>([])
   const [statistics, setStatistics] = useState<Statistics | null>(null)
@@ -61,6 +93,12 @@ export default function AdminDashboard() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [userActivities, setUserActivities] = useState<Certificate[]>([])
   const [loadingActivities, setLoadingActivities] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [comments, setComments] = useState<AdminComment[]>([])
+  const [loadingComments, setLoadingComments] = useState(false)
+  const [commentToReport, setCommentToReport] = useState<AdminComment | null>(null)
+  const [isReporting, setIsReporting] = useState(false)
 
   // Fetch data từ API
   useEffect(() => {
@@ -131,6 +169,26 @@ export default function AdminDashboard() {
         setCertificates(certsData.certificates)
       }
 
+      // Fetch comments
+      const commentsRes = await fetch('http://localhost:5000/api/comments/admin/all', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      
+      if (commentsRes.ok) {
+        const commentsData = await commentsRes.json()
+        setComments(commentsData.data)
+      }
+
+      // Fetch logs
+      const logsRes = await fetch('http://localhost:5000/api/admin/logs', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      
+      if (logsRes.ok) {
+        const logsData = await logsRes.json()
+        setLogs(logsData.logs)
+      }
+
     } catch (error) {
       console.error('Fetch error:', error)
       toast.error('Lỗi khi tải dữ liệu')
@@ -164,8 +222,8 @@ export default function AdminDashboard() {
   }
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Bạn có chắc muốn xóa người dùng này?')) return
-
+    setIsDeleting(true)
+    
     try {
       const token = localStorage.getItem('token')
       const response = await fetch(`http://localhost:5000/api/admin/users/${userId}`, {
@@ -173,15 +231,120 @@ export default function AdminDashboard() {
         headers: { 'Authorization': `Bearer ${token}` }
       })
 
+      const result = await response.json()
+
       if (response.ok) {
-        toast.success('Xóa người dùng thành công')
-        fetchData()
+        toast.success(
+          `✅ Đã xóa tài khoản "${result.deletedUser.fullName}" và ${result.deletedCertificatesCount} chứng chỉ`,
+          { duration: 5000 }
+        )
+        fetchData() // Reload data
       } else {
-        toast.error('Lỗi khi xóa người dùng')
+        toast.error(`❌ ${result.message || 'Lỗi khi xóa người dùng'}`)
       }
     } catch (error) {
       console.error('Delete user error:', error)
-      toast.error('Lỗi khi xóa người dùng')
+      toast.error('❌ Lỗi kết nối khi xóa người dùng')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const openDeleteModal = (user: User) => {
+    setUserToDelete(user)
+  }
+
+  const closeDeleteModal = () => {
+    setUserToDelete(null)
+  }
+
+  const handleReportUser = async (commentId: string, reason: string) => {
+    setIsReporting(true)
+    
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`http://localhost:5000/api/comments/${commentId}/report-user`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ reason })
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        toast.success(`🚨 Đã báo cáo tài khoản ${result.data.reportedUser}`, { duration: 3000 })
+        return result.data
+      } else {
+        toast.error('Lỗi khi báo cáo tài khoản')
+        throw new Error(result.message)
+      }
+    } catch (error) {
+      console.error('Report user error:', error)
+      toast.error('Lỗi khi báo cáo tài khoản')
+      throw error
+    } finally {
+      setIsReporting(false)
+    }
+  }
+
+  const handleLockAccountFromReport = async (userId: string) => {
+    const userToLock = users.find(u => u._id === userId)
+    if (!userToLock) {
+      toast.error('❌ Không tìm thấy tài khoản để khóa')
+      return
+    }
+
+    if (!userToLock.isActive) {
+      toast('ℹ️ Tài khoản này đã bị khóa trước đó', { 
+        icon: 'ℹ️',
+        style: { background: '#e0f2fe', color: '#0369a1' }
+      })
+      return
+    }
+
+    await handleToggleUserStatus(userId, true) // true = isActive hiện tại, sẽ chuyển thành false
+  }
+
+  const openReportModal = (comment: AdminComment) => {
+    setCommentToReport(comment)
+  }
+
+  const closeReportModal = () => {
+    setCommentToReport(null)
+  }
+
+  const handleDeleteComment = async (commentId: string) => {
+    const comment = comments.find(c => c._id === commentId)
+    if (!comment) return
+
+    const confirmMessage = `⚠️ Bạn có chắc muốn xóa bình luận này?\n\n` +
+      `👤 Người dùng: ${comment.userName}\n` +
+      `📧 Email: ${comment.userEmail}\n` +
+      `💬 Nội dung: ${comment.content.substring(0, 100)}${comment.content.length > 100 ? '...' : ''}\n` +
+      `⭐ Đánh giá: ${comment.rating}/5 sao\n\n` +
+      `Hành động này không thể hoàn tác.`
+
+    if (!confirm(confirmMessage)) return
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`http://localhost:5000/api/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+
+      if (response.ok) {
+        toast.success('Đã xóa bình luận')
+        fetchData() // Reload data
+      } else {
+        toast.error('Lỗi khi xóa bình luận')
+      }
+    } catch (error) {
+      console.error('Delete comment error:', error)
+      toast.error('Lỗi khi xóa bình luận')
     }
   }
 
@@ -360,6 +523,7 @@ export default function AdminDashboard() {
     { id: 'overview', name: 'Tổng quan', icon: ChartBarIcon },
     { id: 'users', name: 'Người dùng', icon: UsersIcon },
     { id: 'certificates', name: 'Chứng chỉ', icon: DocumentTextIcon },
+    { id: 'comments', name: 'Bình luận', icon: ChatBubbleLeftRightIcon },
     { id: 'logs', name: 'Nhật ký', icon: CogIcon }
   ]
 
@@ -469,14 +633,14 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
+              <div className="bg-gradient-to-br from-pink-500 to-pink-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-orange-100 text-sm font-medium mb-1">Hôm nay</p>
-                    <p className="text-4xl font-bold">{statistics?.todayProcessed || 0}</p>
+                    <p className="text-pink-100 text-sm font-medium mb-1">Tổng bình luận</p>
+                    <p className="text-4xl font-bold">{comments?.length || 0}</p>
                   </div>
                   <div className="bg-white bg-opacity-20 rounded-full p-4">
-                    <ChartBarIcon className="h-8 w-8" />
+                    <ChatBubbleLeftRightIcon className="h-8 w-8" />
                   </div>
                 </div>
               </div>
@@ -561,19 +725,36 @@ export default function AdminDashboard() {
                           {user.isActive ? 'Hoạt động' : 'Không hoạt động'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
-                        <button 
-                          onClick={() => viewUserActivities(user)}
-                          className="text-blue-600 hover:text-blue-900"
-                        >
-                          Xem hoạt động
-                        </button>
-                        <button 
-                          onClick={() => handleToggleUserStatus(user._id, user.isActive)}
-                          className="text-orange-600 hover:text-orange-900"
-                        >
-                          {user.isActive ? 'Khóa' : 'Kích hoạt'}
-                        </button>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex items-center space-x-3">
+                          <button 
+                            onClick={() => viewUserActivities(user)}
+                            className="text-blue-600 hover:text-blue-900 font-medium"
+                            title="Xem hoạt động"
+                          >
+                            👁️ Xem
+                          </button>
+                          <button 
+                            onClick={() => handleToggleUserStatus(user._id, user.isActive)}
+                            className={`font-medium ${
+                              user.isActive 
+                                ? 'text-orange-600 hover:text-orange-900' 
+                                : 'text-green-600 hover:text-green-900'
+                            }`}
+                            title={user.isActive ? 'Khóa tài khoản' : 'Kích hoạt tài khoản'}
+                          >
+                            {user.isActive ? '🔒 Khóa' : '✅ Kích hoạt'}
+                          </button>
+                          {user.role !== 'admin' && (
+                            <button 
+                              onClick={() => openDeleteModal(user)}
+                              className="text-red-600 hover:text-red-900 font-medium"
+                              title="Xóa tài khoản"
+                            >
+                              🗑️ Xóa
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -583,98 +764,227 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* Logs Tab - Recent Registrations */}
+        {/* Comments Tab */}
+        {activeTab === 'comments' && (
+          <div className="bg-white shadow-lg rounded-xl overflow-hidden">
+            <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">💬 Quản lý bình luận</h2>
+              <p className="text-sm text-gray-600 mt-1">Duyệt và quản lý bình luận của người dùng</p>
+            </div>
+            
+            {comments.length === 0 ? (
+              <div className="text-center py-12">
+                <ChatBubbleLeftRightIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg">Chưa có bình luận nào</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-200">
+                {comments.map((comment) => (
+                  <div key={comment._id} className="p-6 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        {/* User Info */}
+                        <div className="flex items-center space-x-3 mb-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                            <span className="text-white font-semibold text-sm">
+                              {comment.userName.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">{comment.userName}</p>
+                            <p className="text-sm text-gray-500">{comment.userEmail}</p>
+                          </div>
+                        </div>
+
+                        {/* Rating */}
+                        <div className="flex items-center space-x-2 mb-3">
+                          <div className="flex items-center">
+                            {[...Array(5)].map((_, i) => (
+                              <span
+                                key={i}
+                                className={`text-lg ${
+                                  i < comment.rating ? 'text-yellow-400' : 'text-gray-300'
+                                }`}
+                              >
+                                ⭐
+                              </span>
+                            ))}
+                          </div>
+                          <span className="text-sm font-medium text-gray-600">
+                            {comment.rating}/5 sao
+                          </span>
+                        </div>
+
+                        {/* Comment Content */}
+                        <div className="bg-gray-50 rounded-lg p-4 mb-3">
+                          <p className="text-gray-800 leading-relaxed">{comment.content}</p>
+                        </div>
+
+                        {/* Metadata */}
+                        <div className="flex items-center space-x-4 text-xs text-gray-500">
+                          <span>📅 {new Date(comment.createdAt).toLocaleString('vi-VN')}</span>
+                          <span className="inline-flex px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                            💬 Bình luận công khai
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex flex-col space-y-2 ml-4">
+                        <button
+                          onClick={() => openReportModal(comment)}
+                          className="px-3 py-1 bg-orange-100 text-orange-700 rounded-lg text-sm font-medium hover:bg-orange-200 transition-colors"
+                        >
+                          🚨 Báo cáo
+                        </button>
+                        <button
+                          onClick={() => handleDeleteComment(comment._id)}
+                          className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors"
+                        >
+                          🗑️ Xóa
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Logs Tab - System Activity Logs */}
         {activeTab === 'logs' && (
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">Nhật ký hệ thống - Tài khoản mới đăng ký</h2>
+          <div className="bg-white shadow-lg rounded-xl overflow-hidden">
+            <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">📋 Nhật ký hệ thống</h2>
+              <p className="text-sm text-gray-600 mt-1">Lịch sử hoạt động và thay đổi của admin</p>
             </div>
             <div className="p-6">
-              {users.length === 0 ? (
-                <div className="text-center py-8">
-                  <UsersIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500">Chưa có tài khoản nào</p>
+              {logs.length === 0 ? (
+                <div className="text-center py-12">
+                  <CogIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500 text-lg">Chưa có hoạt động nào</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {users
-                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                    .slice(0, 20)
-                    .map((user) => {
-                      const registrationDate = new Date(user.createdAt)
-                      const now = new Date()
-                      const diffTime = Math.abs(now.getTime() - registrationDate.getTime())
-                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-                      const isNew = diffDays <= 7
-                      
-                      return (
-                        <div key={user._id} className={`p-4 rounded-lg border-l-4 ${
-                          isNew ? 'bg-green-50 border-green-400' : 'bg-blue-50 border-blue-400'
-                        }`}>
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start space-x-3 flex-1">
-                              <div className="flex-shrink-0">
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                                  isNew ? 'bg-green-100' : 'bg-blue-100'
-                                }`}>
-                                  <UsersIcon className={`h-5 w-5 ${
-                                    isNew ? 'text-green-600' : 'text-blue-600'
-                                  }`} />
-                                </div>
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-2">
-                                  <p className={`text-sm font-semibold ${
-                                    isNew ? 'text-green-800' : 'text-blue-800'
-                                  }`}>
-                                    {user.fullName || 'Không có tên'}
-                                  </p>
-                                  {isNew && (
-                                    <span className="inline-flex px-2 py-0.5 text-xs font-bold rounded-full bg-green-200 text-green-800">
-                                      MỚI
-                                    </span>
-                                  )}
-                                  {user.role === 'admin' && (
-                                    <span className="inline-flex px-2 py-0.5 text-xs font-bold rounded-full bg-purple-200 text-purple-800">
-                                      ADMIN
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-sm text-gray-600 mt-1">
-                                  📧 {user.email}
-                                </p>
-                                <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                                  <span>
-                                    📅 Đăng ký: {registrationDate.toLocaleDateString('vi-VN', {
-                                      year: 'numeric',
-                                      month: '2-digit',
-                                      day: '2-digit',
-                                      hour: '2-digit',
-                                      minute: '2-digit'
-                                    })}
-                                  </span>
-                                  <span>
-                                    ⏱️ {diffDays === 0 ? 'Hôm nay' : `${diffDays} ngày trước`}
-                                  </span>
-                                  <span>
-                                    📊 {user.certificatesProcessed} chứng chỉ
-                                  </span>
-                                </div>
+                <div className="space-y-4">
+                  {logs.map((log) => {
+                    const logDate = new Date(log.timestamp)
+                    const now = new Date()
+                    const diffTime = Math.abs(now.getTime() - logDate.getTime())
+                    const diffMinutes = Math.floor(diffTime / (1000 * 60))
+                    const diffHours = Math.floor(diffMinutes / 60)
+                    const diffDays = Math.floor(diffHours / 24)
+                    
+                    let timeAgo = ''
+                    if (diffDays > 0) {
+                      timeAgo = `${diffDays} ngày trước`
+                    } else if (diffHours > 0) {
+                      timeAgo = `${diffHours} giờ trước`
+                    } else if (diffMinutes > 0) {
+                      timeAgo = `${diffMinutes} phút trước`
+                    } else {
+                      timeAgo = 'Vừa xong'
+                    }
+
+                    const getLogIcon = (type: string) => {
+                      switch (type) {
+                        case 'user_register': return '👤'
+                        case 'user_login': return '🔑'
+                        case 'user_logout': return '🚪'
+                        case 'user_profile_update': return '✏️'
+                        case 'certificate_upload': return '📤'
+                        case 'certificate_process': return '⚙️'
+                        case 'certificate_download': return '📥'
+                        case 'certificate_delete': return '🗂️'
+                        case 'comment_create': return '💬'
+                        case 'comment_update': return '📝'
+                        case 'comment_delete': return '🗨️'
+                        case 'user_report': return '🚨'
+                        case 'account_lock': return '🔒'
+                        case 'account_unlock': return '🔓'
+                        case 'user_delete': return '🗑️'
+                        case 'admin_action': return '👨‍💼'
+                        case 'system_error': return '❌'
+                        case 'security_alert': return '🛡️'
+                        case 'warning': return '⚠️'
+                        case 'error': return '❌'
+                        default: return 'ℹ️'
+                      }
+                    }
+
+                    const getLogColor = (severity: string) => {
+                      switch (severity) {
+                        case 'critical': return 'bg-red-50 border-red-200'
+                        case 'high': return 'bg-orange-50 border-orange-200'
+                        case 'medium': return 'bg-yellow-50 border-yellow-200'
+                        case 'low': return 'bg-blue-50 border-blue-200'
+                        default: return 'bg-gray-50 border-gray-200'
+                      }
+                    }
+
+                    const getLogTextColor = (severity: string) => {
+                      switch (severity) {
+                        case 'critical': return 'text-red-800'
+                        case 'high': return 'text-orange-800'
+                        case 'medium': return 'text-yellow-800'
+                        case 'low': return 'text-blue-800'
+                        default: return 'text-gray-800'
+                      }
+                    }
+
+                    return (
+                      <div key={log.id} className={`p-4 rounded-lg border-l-4 ${getLogColor(log.severity || 'low')}`}>
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start space-x-3 flex-1">
+                            <div className="flex-shrink-0">
+                              <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
+                                <span className="text-lg">{getLogIcon(log.type)}</span>
                               </div>
                             </div>
-                            <div className="flex items-center space-x-2">
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                user.isActive 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {user.isActive ? 'Hoạt động' : 'Khóa'}
-                              </span>
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <p className={`text-sm font-semibold ${getLogTextColor(log.severity || 'low')}`}>
+                                  {log.message}
+                                </p>
+                                <span className={`inline-flex px-2 py-0.5 text-xs font-bold rounded-full ${
+                                  log.severity === 'critical' ? 'bg-red-200 text-red-800' :
+                                  log.severity === 'high' ? 'bg-orange-200 text-orange-800' :
+                                  log.severity === 'medium' ? 'bg-yellow-200 text-yellow-800' :
+                                  'bg-blue-200 text-blue-800'
+                                }`}>
+                                  {log.severity?.toUpperCase() || 'LOW'}
+                                </span>
+                              </div>
+
+                              {/* Chi tiết log */}
+                              {log.details && (
+                                <div className="bg-white rounded-lg p-3 mb-2 text-sm">
+                                  {log.details.reason && (
+                                    <p><span className="font-medium">📝 Lý do:</span> {log.details.reason}</p>
+                                  )}
+                                  {log.details.commentContent && (
+                                    <p><span className="font-medium">💬 Bình luận:</span> "{log.details.commentContent}"</p>
+                                  )}
+                                  {log.details.previousStatus && log.details.newStatus && (
+                                    <p><span className="font-medium">🔄 Thay đổi:</span> {log.details.previousStatus} → {log.details.newStatus}</p>
+                                  )}
+                                </div>
+                              )}
+
+                              <div className="flex items-center space-x-4 text-xs text-gray-500">
+                                <span>👤 Admin: {log.adminName || 'Hệ thống'}</span>
+                                {log.targetUserName && (
+                                  <span>🎯 Đối tượng: {log.targetUserName} ({log.targetUserEmail})</span>
+                                )}
+                                <span>📅 {logDate.toLocaleString('vi-VN')}</span>
+                                <span>⏱️ {timeAgo}</span>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      )
-                    })}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -809,6 +1119,25 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* Delete User Modal */}
+      <DeleteUserModal
+        user={userToDelete}
+        isOpen={!!userToDelete}
+        onClose={closeDeleteModal}
+        onConfirm={handleDeleteUser}
+        isLoading={isDeleting}
+      />
+
+      {/* Report User Modal */}
+      <ReportUserModal
+        comment={commentToReport}
+        isOpen={!!commentToReport}
+        onClose={closeReportModal}
+        onReport={handleReportUser}
+        onLockAccount={handleLockAccountFromReport}
+        isLoading={isReporting}
+      />
     </div>
   )
 }

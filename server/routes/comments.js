@@ -2,11 +2,12 @@ const express = require('express');
 const router = express.Router();
 const Comment = require('../models/Comment');
 const auth = require('../middleware/auth');
+const SystemLogger = require('../utils/logger');
 
-// Lấy tất cả bình luận (public)
+// Lấy tất cả bình luận (public) - không cần duyệt nữa
 router.get('/', async (req, res) => {
   try {
-    const comments = await Comment.find({ isApproved: true })
+    const comments = await Comment.find({})
       .sort({ createdAt: -1 })
       .limit(100)
       .select('-__v');
@@ -54,6 +55,12 @@ router.post('/', auth.auth, async (req, res) => {
     });
 
     await comment.save();
+
+    // Log tạo bình luận
+    await SystemLogger.logCommentCreate(req.user, comment, {
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent')
+    });
 
     res.status(201).json({
       success: true,
@@ -161,22 +168,45 @@ router.delete('/:id', auth.auth, async (req, res) => {
   }
 });
 
-// Admin: Duyệt/ẩn bình luận
-router.patch('/:id/approve', auth.auth, async (req, res) => {
+// Admin: Lấy tất cả bình luận (bao gồm chưa duyệt)
+router.get('/admin/all', auth.auth, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
-        message: 'Chỉ admin mới có quyền duyệt bình luận'
+        message: 'Chỉ admin mới có quyền xem tất cả bình luận'
       });
     }
 
-    const { isApproved } = req.body;
-    const comment = await Comment.findByIdAndUpdate(
-      req.params.id,
-      { isApproved },
-      { new: true }
-    );
+    const comments = await Comment.find({})
+      .sort({ createdAt: -1 })
+      .select('-__v');
+    
+    res.json({
+      success: true,
+      data: comments
+    });
+  } catch (error) {
+    console.error('Error fetching all comments:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi tải bình luận'
+    });
+  }
+});
+
+// Admin: Báo cáo tài khoản người dùng
+router.post('/:id/report-user', auth.auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Chỉ admin mới có quyền báo cáo tài khoản'
+      });
+    }
+
+    const { reason } = req.body;
+    const comment = await Comment.findById(req.params.id);
 
     if (!comment) {
       return res.status(404).json({
@@ -185,16 +215,68 @@ router.patch('/:id/approve', auth.auth, async (req, res) => {
       });
     }
 
+    // Tìm user để báo cáo
+    const User = require('../models/User');
+    const user = await User.findById(comment.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng'
+      });
+    }
+
+    // Lưu log báo cáo vào database
+    const SystemLog = require('../models/SystemLog');
+    const reportLog = new SystemLog({
+      type: 'user_report',
+      adminId: req.user._id,
+      adminName: req.user.fullName,
+      targetUserId: user._id,
+      targetUserName: user.fullName,
+      targetUserEmail: user.email,
+      message: `Admin ${req.user.fullName} đã báo cáo tài khoản ${user.fullName} (${user.email})`,
+      details: {
+        reason: reason || 'Vi phạm quy định bình luận',
+        commentContent: comment.content,
+        commentId: comment._id.toString(),
+        additionalInfo: {
+          commentRating: comment.rating,
+          reportTime: new Date().toISOString()
+        }
+      },
+      severity: 'high'
+    });
+
+    await reportLog.save();
+
+    // Log console để debug
+    console.log(`🚨 BÁO CÁO TÀI KHOẢN:`, {
+      reportedBy: req.user.fullName,
+      reportedUser: user.fullName,
+      userEmail: user.email,
+      reason: reason || 'Vi phạm quy định bình luận',
+      commentContent: comment.content,
+      timestamp: new Date().toISOString()
+    });
+
     res.json({
       success: true,
-      message: isApproved ? 'Đã duyệt bình luận' : 'Đã ẩn bình luận',
-      data: comment
+      message: `Đã báo cáo tài khoản ${user.fullName} (${user.email})`,
+      data: {
+        userId: user._id,
+        reportedUser: user.fullName,
+        userEmail: user.email,
+        reason: reason || 'Vi phạm quy định bình luận',
+        isActive: user.isActive,
+        logId: reportLog._id
+      }
     });
   } catch (error) {
-    console.error('Error approving comment:', error);
+    console.error('Error reporting user:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi khi duyệt bình luận'
+      message: 'Lỗi khi báo cáo tài khoản'
     });
   }
 });

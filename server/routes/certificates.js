@@ -3,6 +3,7 @@ const multer = require('multer')
 const Certificate = require('../models/Certificate')
 const User = require('../models/User')
 const { auth } = require('../middleware/auth')
+const SystemLogger = require('../utils/logger')
 
 const router = express.Router()
 
@@ -80,6 +81,21 @@ router.post('/upload', auth, upload.single('certificate'), async (req, res) => {
     // Cập nhật số lượng chứng chỉ của user
     await User.findByIdAndUpdate(req.userId, {
       $inc: { certificatesProcessed: 1 }
+    })
+
+    // Log upload certificate
+    const user = await User.findById(req.userId)
+    await SystemLogger.logCertificateUpload(user, certificate, {
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+      ocrConfidence: confidence
+    })
+
+    // Log xử lý certificate
+    await SystemLogger.logCertificateProcess(user, certificate, 'completed', {
+      processingTime: 0,
+      confidence: confidence,
+      extractedFields: filledFields
     })
 
     res.json({

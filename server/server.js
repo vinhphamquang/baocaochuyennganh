@@ -10,6 +10,7 @@ const certificateRoutes = require('./routes/certificates')
 const adminRoutes = require('./routes/admin')
 const commentRoutes = require('./routes/comments')
 const aiOcrRoutes = require('./routes/ai-ocr')
+const errorLogger = require('./middleware/errorLogger')
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -98,6 +99,9 @@ app.use('/api/ai-ocr', aiOcrRoutes)
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() })
 })
+
+// Error logging middleware
+app.use(errorLogger)
 
 // Error handling middleware
 app.use((err, req, res, next) => {

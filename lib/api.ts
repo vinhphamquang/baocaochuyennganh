@@ -213,3 +213,136 @@ export const commentAPI = {
     return result
   },
 }
+
+export interface User {
+  _id: string
+  fullName: string
+  email: string
+  role: string
+  isActive: boolean
+  certificatesProcessed: number
+  createdAt: string
+  updatedAt: string
+}
+
+export const adminAPI = {
+  getUsers: async (token: string) => {
+    const response = await fetch(`${API_URL}/admin/users`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Lỗi khi lấy danh sách người dùng')
+    }
+
+    return result
+  },
+
+  updateUserStatus: async (userId: string, isActive: boolean, token: string) => {
+    const response = await fetch(`${API_URL}/admin/users/${userId}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ isActive }),
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Lỗi khi cập nhật trạng thái người dùng')
+    }
+
+    return result
+  },
+
+  deleteUser: async (userId: string, token: string) => {
+    const response = await fetch(`${API_URL}/admin/users/${userId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Lỗi khi xóa tài khoản người dùng')
+    }
+
+    return result
+  },
+
+  getStatistics: async (token: string) => {
+    const response = await fetch(`${API_URL}/admin/statistics`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Lỗi khi lấy thống kê hệ thống')
+    }
+
+    return result
+  },
+
+  getAllComments: async (token: string) => {
+    const response = await fetch(`${API_URL}/comments/admin/all`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Lỗi khi lấy danh sách bình luận')
+    }
+
+    return result
+  },
+
+  reportUser: async (commentId: string, reason: string, token: string) => {
+    const response = await fetch(`${API_URL}/comments/${commentId}/report-user`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ reason }),
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Lỗi khi báo cáo tài khoản')
+    }
+
+    return result
+  },
+
+  deleteComment: async (commentId: string, token: string) => {
+    const response = await fetch(`${API_URL}/comments/${commentId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Lỗi khi xóa bình luận')
+    }
+
+    return result
+  },
+}

@@ -24,23 +24,116 @@ router.put('/users/:id/status', adminAuth, async (req, res) => {
   try {
     const { isActive } = req.body
     
+    // Lấy thông tin user trước khi cập nhật
+    const oldUser = await User.findById(req.params.id).select('-password')
+    if (!oldUser) {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' })
+    }
+
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { isActive },
       { new: true }
     ).select('-password')
 
-    if (!user) {
-      return res.status(404).json({ message: 'Không tìm thấy người dùng' })
-    }
+    // Lưu log thay đổi trạng thái
+    const SystemLog = require('../models/SystemLog')
+    const statusLog = new SystemLog({
+      type: isActive ? 'account_unlock' : 'account_lock',
+      adminId: req.userId,
+      adminName: req.user?.fullName || 'Admin',
+      targetUserId: user._id,
+      targetUserName: user.fullName,
+      targetUserEmail: user.email,
+      message: `Admin đã ${isActive ? 'mở khóa' : 'khóa'} tài khoản ${user.fullName} (${user.email})`,
+      details: {
+        previousStatus: oldUser.isActive ? 'active' : 'locked',
+        newStatus: isActive ? 'active' : 'locked',
+        reason: isActive ? 'Mở khóa tài khoản' : 'Khóa tài khoản',
+        additionalInfo: {
+          actionTime: new Date().toISOString()
+        }
+      },
+      severity: isActive ? 'medium' : 'high'
+    })
+
+    await statusLog.save()
 
     res.json({ 
       message: `${isActive ? 'Kích hoạt' : 'Khóa'} tài khoản thành công`,
-      user 
+      user,
+      logId: statusLog._id
     })
   } catch (error) {
     console.error('Update user status error:', error)
     res.status(500).json({ message: 'Lỗi khi cập nhật trạng thái người dùng' })
+  }
+})
+
+// Delete user account (admin only)
+router.delete('/users/:id', adminAuth, async (req, res) => {
+  try {
+    const userId = req.params.id
+    
+    // Prevent admin from deleting themselves
+    if (userId === req.userId.toString()) {
+      return res.status(400).json({ message: 'Không thể xóa tài khoản của chính mình' })
+    }
+
+    // Check if user exists
+    const user = await User.findById(userId)
+    if (!user) {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' })
+    }
+
+    // Prevent deleting other admin accounts
+    if (user.role === 'admin') {
+      return res.status(403).json({ message: 'Không thể xóa tài khoản admin khác' })
+    }
+
+    // Delete all certificates associated with this user
+    const deletedCertificates = await Certificate.deleteMany({ userId })
+    
+    // Lưu log trước khi xóa user
+    const SystemLog = require('../models/SystemLog')
+    const deleteLog = new SystemLog({
+      type: 'user_delete',
+      adminId: req.userId,
+      adminName: req.user?.fullName || 'Admin',
+      targetUserId: user._id,
+      targetUserName: user.fullName,
+      targetUserEmail: user.email,
+      message: `Admin đã xóa tài khoản ${user.fullName} (${user.email})`,
+      details: {
+        reason: 'Xóa tài khoản người dùng',
+        previousStatus: user.isActive ? 'active' : 'locked',
+        additionalInfo: {
+          deletedCertificatesCount: deletedCertificates.deletedCount,
+          userRole: user.role,
+          deleteTime: new Date().toISOString()
+        }
+      },
+      severity: 'critical'
+    })
+
+    await deleteLog.save()
+    
+    // Delete the user
+    await User.findByIdAndDelete(userId)
+
+    res.json({ 
+      message: 'Xóa tài khoản thành công',
+      deletedUser: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email
+      },
+      deletedCertificatesCount: deletedCertificates.deletedCount,
+      logId: deleteLog._id
+    })
+  } catch (error) {
+    console.error('Delete user error:', error)
+    res.status(500).json({ message: 'Lỗi khi xóa tài khoản người dùng' })
   }
 })
 
@@ -89,32 +182,31 @@ router.get('/statistics', adminAuth, async (req, res) => {
   }
 })
 
-// Get system logs (mock data for now)
+// Get system logs
 router.get('/logs', adminAuth, async (req, res) => {
   try {
-    // In a real application, you would have a proper logging system
-    const mockLogs = [
-      {
-        id: '1',
-        timestamp: new Date().toISOString(),
-        type: 'info',
-        message: 'Hệ thống khởi động thành công'
-      },
-      {
-        id: '2',
-        timestamp: new Date(Date.now() - 300000).toISOString(),
-        type: 'warning',
-        message: 'OCR API response time cao hơn bình thường'
-      },
-      {
-        id: '3',
-        timestamp: new Date(Date.now() - 600000).toISOString(),
-        type: 'error',
-        message: 'Lỗi xử lý file certificate_corrupted.pdf'
-      }
-    ]
+    const SystemLog = require('../models/SystemLog')
+    
+    // Lấy logs từ database
+    const logs = await SystemLog.find({})
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .select('-__v')
 
-    res.json({ logs: mockLogs })
+    // Format logs để hiển thị
+    const formattedLogs = logs.map(log => ({
+      id: log._id,
+      timestamp: log.createdAt,
+      type: log.type,
+      message: log.message,
+      adminName: log.adminName,
+      targetUserName: log.targetUserName,
+      targetUserEmail: log.targetUserEmail,
+      details: log.details,
+      severity: log.severity
+    }))
+
+    res.json({ logs: formattedLogs })
   } catch (error) {
     console.error('Get logs error:', error)
     res.status(500).json({ message: 'Lỗi khi lấy nhật ký hệ thống' })

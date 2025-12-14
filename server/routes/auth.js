@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken')
 const User = require('../models/User')
 const { auth } = require('../middleware/auth')
 const { sendResetPasswordEmail, sendWelcomeEmail } = require('../utils/email')
+const SystemLogger = require('../utils/logger')
 
 const router = express.Router()
 
@@ -26,6 +27,12 @@ router.post('/register', async (req, res) => {
     })
 
     await user.save()
+
+    // Log đăng ký tài khoản
+    await SystemLogger.logUserRegister(user, {
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent')
+    })
 
     // Generate JWT token
     const token = jwt.sign(
@@ -71,6 +78,12 @@ router.post('/login', async (req, res) => {
     if (!isPasswordValid) {
       return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' })
     }
+
+    // Log đăng nhập
+    await SystemLogger.logUserLogin(user, {
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent')
+    })
 
     // Generate JWT token
     const token = jwt.sign(
@@ -119,6 +132,9 @@ router.put('/profile', auth, async (req, res) => {
       }
     }
 
+    // Lấy thông tin user cũ để so sánh
+    const oldUser = await User.findById(req.userId).select('-password')
+    
     // Update user
     const user = await User.findByIdAndUpdate(
       req.userId,
@@ -128,6 +144,18 @@ router.put('/profile', auth, async (req, res) => {
 
     if (!user) {
       return res.status(404).json({ message: 'Không tìm thấy người dùng' })
+    }
+
+    // Log cập nhật profile
+    const changes = {}
+    if (oldUser.fullName !== user.fullName) changes.fullName = { old: oldUser.fullName, new: user.fullName }
+    if (oldUser.email !== user.email) changes.email = { old: oldUser.email, new: user.email }
+    
+    if (Object.keys(changes).length > 0) {
+      await SystemLogger.logProfileUpdate(user, changes, {
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      })
     }
 
     res.json({ 
