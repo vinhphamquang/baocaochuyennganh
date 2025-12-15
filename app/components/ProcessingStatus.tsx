@@ -18,7 +18,7 @@ interface ProcessingStatusProps {
 export default function ProcessingStatus({ currentStep, progress, method = 'hybrid' }: ProcessingStatusProps) {
   const [steps, setSteps] = useState<ProcessingStep[]>([
     { id: 'validate', name: 'Kiểm tra chất lượng ảnh', status: 'pending' },
-    { id: 'ai-api', name: 'Thử AI API', status: 'pending' },
+    { id: 'gemini', name: 'Gemini AI 2.5 Flash', status: 'pending' },
     { id: 'preprocess', name: 'Tiền xử lý ảnh', status: 'pending' },
     { id: 'ocr', name: 'Tesseract OCR', status: 'pending' },
     { id: 'extract', name: 'Trích xuất thông tin', status: 'pending' },
@@ -78,11 +78,11 @@ export default function ProcessingStatus({ currentStep, progress, method = 'hybr
   const getMethodInfo = () => {
     switch (method) {
       case 'ai-api':
-        return { name: 'AI API', color: 'from-blue-500 to-blue-600', icon: '🤖' }
+        return { name: 'Gemini AI 2.5 Flash', color: 'from-blue-500 to-blue-600', icon: '🤖' }
       case 'tesseract':
         return { name: 'Tesseract OCR', color: 'from-green-500 to-green-600', icon: '🔍' }
       default:
-        return { name: 'Hybrid AI', color: 'from-purple-500 to-purple-600', icon: '🔀' }
+        return { name: 'Hybrid AI + OCR', color: 'from-purple-500 to-purple-600', icon: '🔀' }
     }
   }
 

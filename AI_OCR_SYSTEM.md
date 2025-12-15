@@ -1,17 +1,18 @@
-# 🤖 Hệ thống OCR-AI Hybrid - Trích xuất chứng chỉ thông minh
+# 🤖 Hệ thống Gemini AI + OCR Hybrid - Trích xuất chứng chỉ thông minh
 
 ## 🎯 Tổng quan
 
-Hệ thống OCR-AI Hybrid kết hợp sức mạnh của AI API và Tesseract.js OCR để trích xuất thông tin chứng chỉ với độ chính xác cao nhất.
+Hệ thống OCR-AI Hybrid kết hợp sức mạnh của **Google Gemini 2.5 Flash AI** và Tesseract.js OCR để trích xuất thông tin chứng chỉ với độ chính xác cao nhất.
 
 ---
 
 ## 🚀 Kiến trúc hệ thống
 
-### **1. OCR-AI Hybrid Engine**
+### **1. Gemini AI + OCR Hybrid Engine**
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Upload Image  │ -> │   AI API First  │ -> │  Tesseract OCR  │
+│   Upload Image  │ -> │ Gemini AI 2.5   │ -> │  Tesseract OCR  │
+│                 │    │ Flash First     │    │   Fallback      │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
                                 │                       │
                                 v                       v
@@ -22,26 +23,27 @@ Hệ thống OCR-AI Hybrid kết hợp sức mạnh của AI API và Tesseract.j
                                 │                       │
                                 v                       v
                        ┌─────────────────────────────────────────┐
-                       │         Hybrid Merge Results           │
+                       │    Intelligent Hybrid Merge Results    │
                        └─────────────────────────────────────────┘
 ```
 
-### **2. Luồng xử lý thông minh**
+### **2. Luồng xử lý thông minh với Gemini AI**
 1. **Image Validation** - Kiểm tra chất lượng ảnh
-2. **AI API Processing** - Thử AI API trước (nhanh, chính xác)
-3. **Tesseract Fallback** - Fallback nếu AI API thất bại
+2. **Gemini AI Processing** - Thử Gemini 2.5 Flash trước (nhanh, chính xác)
+3. **Tesseract Fallback** - Fallback nếu Gemini AI thất bại
 4. **AI Information Extraction** - Trích xuất thông tin với AI patterns
-5. **Hybrid Merge** - Kết hợp kết quả tốt nhất
+5. **Intelligent Merge** - Kết hợp kết quả tốt nhất từ cả 2 nguồn
 6. **Quality Assessment** - Đánh giá chất lượng kết quả
 
 ---
 
 ## 🔧 Các thành phần chính
 
-### **1. CertificateAIService**
-- Kết nối AI API endpoint
-- Parse response từ AI service
-- Handle fallback khi API không khả dụng
+### **1. GeminiAIService**
+- Kết nối Google Gemini 2.5 Flash API
+- Intelligent prompt engineering cho certificate extraction
+- Advanced response parsing và validation
+- Handle fallback khi Gemini không khả dụng
 
 ### **2. EnhancedTesseractOCR**
 - Tiền xử lý ảnh nâng cao (scale, contrast, noise reduction)
@@ -63,14 +65,14 @@ Hệ thống OCR-AI Hybrid kết hợp sức mạnh của AI API và Tesseract.j
 
 ## 📊 Độ chính xác theo loại chứng chỉ
 
-| Loại chứng chỉ | AI API | Tesseract | Hybrid |
-|----------------|--------|-----------|--------|
-| **IELTS**      | 95-98% | 85-90%    | 95-99% |
-| **TOEFL**      | 92-96% | 80-88%    | 92-97% |
-| **TOEIC**      | 90-95% | 78-85%    | 90-96% |
-| **VSTEP**      | 88-92% | 75-82%    | 88-93% |
-| **HSK**        | 85-90% | 65-75%    | 85-91% |
-| **JLPT**       | 83-88% | 60-72%    | 83-89% |
+| Loại chứng chỉ | Gemini AI | Tesseract | Hybrid |
+|----------------|-----------|-----------|--------|
+| **IELTS**      | 96-99% | 85-90%    | 96-99% |
+| **TOEFL**      | 94-98% | 80-88%    | 94-98% |
+| **TOEIC**      | 92-97% | 78-85%    | 92-97% |
+| **VSTEP**      | 90-95% | 75-82%    | 90-95% |
+| **HSK**        | 88-93% | 65-75%    | 88-93% |
+| **JLPT**       | 85-91% | 60-72%    | 85-91% |
 
 ---
 

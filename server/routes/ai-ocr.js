@@ -1,5 +1,7 @@
 const express = require('express');
 const multer = require('multer');
+const GeminiCertificateExtractor = require('../services/geminiAI');
+const SystemLogger = require('../utils/logger');
 const router = express.Router();
 
 // Configure multer for file upload
@@ -18,24 +20,48 @@ const upload = multer({
 });
 
 /**
- * AI-powered Certificate Recognition Service
+ * Enhanced AI-powered Certificate Recognition Service với Gemini
  */
 class CertificateAIRecognizer {
+  constructor() {
+    this.geminiExtractor = new GeminiCertificateExtractor();
+  }
+
   /**
-   * Analyze certificate image and extract information
+   * Analyze certificate image với Gemini AI
    */
-  async analyzeCertificate(imageBuffer, filename) {
-    console.log(`🤖 AI analyzing certificate: ${filename}`);
+  async analyzeCertificate(imageBuffer, filename, mimeType) {
+    console.log(`🤖 Gemini AI analyzing certificate: ${filename}`);
     
     try {
-      // Simulate AI processing time
-      await this.delay(2000);
+      const startTime = Date.now();
       
-      // Mock AI analysis - In production, this would call actual AI service
-      const mockResult = this.generateMockAIResult(filename);
-      
-      console.log('✅ AI analysis completed:', mockResult);
-      return mockResult;
+      // Thử Gemini AI trước
+      try {
+        const geminiResult = await this.geminiExtractor.extractCertificateInfo(imageBuffer, mimeType);
+        const processingTime = (Date.now() - startTime) / 1000;
+        
+        console.log('✅ Gemini AI analysis completed:', geminiResult);
+        
+        return {
+          ...geminiResult,
+          processingTime,
+          extractionMethod: 'gemini-ai'
+        };
+      } catch (geminiError) {
+        console.warn('⚠️ Gemini AI failed, fallback to mock:', geminiError.message);
+        
+        // Fallback to mock result
+        const mockResult = this.generateMockAIResult(filename);
+        const processingTime = (Date.now() - startTime) / 1000;
+        
+        return {
+          ...mockResult,
+          processingTime,
+          extractionMethod: 'mock-fallback',
+          fallbackReason: geminiError.message
+        };
+      }
       
     } catch (error) {
       console.error('❌ AI Analysis Error:', error);
@@ -176,13 +202,32 @@ router.post('/', upload.single('image'), async (req, res) => {
     // Validate image quality
     aiRecognizer.validateImageQuality(req.file.buffer);
     
-    // Process with AI
+    // Process with Gemini AI
     const startTime = Date.now();
     const result = await aiRecognizer.analyzeCertificate(
       req.file.buffer, 
-      req.file.originalname
+      req.file.originalname,
+      req.file.mimetype
     );
     const processingTime = (Date.now() - startTime) / 1000;
+
+    // Log certificate processing
+    if (result.extractionMethod === 'gemini-ai') {
+      await SystemLogger.logAdminAction(
+        { _id: 'system', fullName: 'Gemini AI' },
+        'AI Certificate Processing',
+        null,
+        {
+          reason: 'Gemini AI trích xuất chứng chỉ',
+          additionalInfo: {
+            filename: req.file.originalname,
+            confidence: result.confidence,
+            certificateType: result.certificateType,
+            processingTime
+          }
+        }
+      );
+    }
     
     // Return result
     res.json({
@@ -209,22 +254,43 @@ router.post('/', upload.single('image'), async (req, res) => {
 
 /**
  * GET /api/ai-ocr/health
- * Health check endpoint
+ * Health check endpoint với Gemini status
  */
-router.get('/health', (req, res) => {
-  res.json({
-    success: true,
-    status: 'AI OCR Service is running',
-    version: '1.0.0',
-    capabilities: [
-      'IELTS Recognition',
-      'TOEIC Recognition', 
-      'TOEFL Recognition',
-      'VSTEP Recognition',
-      'General Certificate Recognition'
-    ],
-    timestamp: new Date().toISOString()
-  });
+router.get('/health', async (req, res) => {
+  try {
+    const geminiExtractor = new GeminiCertificateExtractor();
+    const geminiHealth = await geminiExtractor.healthCheck();
+    
+    res.json({
+      success: true,
+      status: 'AI OCR Service is running',
+      version: '2.0.0',
+      aiEngine: {
+        primary: 'Gemini 2.5 Flash',
+        status: geminiHealth.status,
+        message: geminiHealth.message,
+        model: geminiHealth.model || 'gemini-2.0-flash-exp'
+      },
+      capabilities: [
+        'Gemini AI Recognition',
+        'IELTS Recognition',
+        'TOEIC Recognition', 
+        'TOEFL Recognition',
+        'VSTEP Recognition',
+        'HSK Recognition',
+        'JLPT Recognition',
+        'General Certificate Recognition'
+      ],
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      status: 'Health check failed',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 /**

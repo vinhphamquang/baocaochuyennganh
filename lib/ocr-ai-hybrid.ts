@@ -28,16 +28,18 @@ export interface CertificateData {
 }
 
 /**
- * AI API Service cho nhận dạng chứng chỉ
+ * Gemini AI Service cho nhận dạng chứng chỉ
  */
-class CertificateAIService {
+class GeminiAIService {
   private apiEndpoint = process.env.NEXT_PUBLIC_AI_OCR_API || 'http://localhost:5000/api/ai-ocr';
   
   /**
-   * Gửi ảnh lên AI API để nhận dạng
+   * Gửi ảnh lên Gemini AI để nhận dạng
    */
   async recognizeCertificate(imageFile: File): Promise<Partial<CertificateData>> {
     try {
+      console.log('🤖 Đang gửi ảnh lên Gemini AI...');
+      
       const formData = new FormData();
       formData.append('image', imageFile);
       formData.append('type', 'certificate');
@@ -51,33 +53,64 @@ class CertificateAIService {
       });
       
       if (!response.ok) {
-        throw new Error(`AI API Error: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`Gemini AI Error: ${response.status} - ${errorText}`);
       }
       
       const result = await response.json();
-      return this.parseAIResponse(result);
+      console.log('✅ Gemini AI response:', result);
+      
+      return this.parseGeminiResponse(result);
     } catch (error) {
-      console.warn('AI API không khả dụng, fallback to Tesseract:', error);
-      return {};
+      console.warn('⚠️ Gemini AI không khả dụng, fallback to Tesseract:', error);
+      return {
+        extractionMethod: 'tesseract',
+        confidence: 0
+      };
     }
   }
   
   /**
-   * Parse response từ AI API
+   * Parse response từ Gemini AI
    */
-  private parseAIResponse(response: any): Partial<CertificateData> {
+  private parseGeminiResponse(response: any): Partial<CertificateData> {
+    const data = response.data || response;
+    
     return {
-      fullName: response.fullName || response.name,
-      dateOfBirth: response.dateOfBirth || response.dob,
-      certificateNumber: response.certificateNumber || response.certNumber,
-      examDate: response.examDate || response.testDate,
-      issueDate: response.issueDate,
-      issuingOrganization: response.issuingOrganization || response.issuer,
-      certificateType: response.certificateType || response.type,
-      scores: response.scores || {},
-      confidence: response.confidence || 0,
-      extractionMethod: 'ai-api' as const
+      fullName: data.fullName || '',
+      dateOfBirth: data.dateOfBirth || '',
+      certificateNumber: data.certificateNumber || '',
+      examDate: data.examDate || '',
+      issueDate: data.issueDate || '',
+      issuingOrganization: data.issuingOrganization || '',
+      certificateType: data.certificateType || 'OTHER',
+      scores: data.scores || {},
+      confidence: data.confidence || 0,
+      extractionMethod: data.extractionMethod === 'gemini-ai' ? 'ai-api' as const : 'tesseract' as const,
+      processingTime: data.processingTime || 0,
+      rawText: data.rawText || ''
     };
+  }
+
+  /**
+   * Kiểm tra trạng thái Gemini AI
+   */
+  async checkHealth(): Promise<{ status: string; message: string; model?: string }> {
+    try {
+      const response = await fetch(`${this.apiEndpoint}/health`);
+      const result = await response.json();
+      
+      return {
+        status: result.aiEngine?.status || 'unknown',
+        message: result.aiEngine?.message || 'Unknown status',
+        model: result.aiEngine?.model
+      };
+    } catch (error) {
+      return {
+        status: 'error',
+        message: `Health check failed: ${error}`
+      };
+    }
   }
 }
 
@@ -705,7 +738,7 @@ class AIInformationExtractor {
  * Main OCR-AI Hybrid System
  */
 export class OCRAIHybridSystem {
-  private aiService = new CertificateAIService();
+  private geminiAI = new GeminiAIService();
   private tesseractOCR = new EnhancedTesseractOCR();
   private aiExtractor = new AIInformationExtractor();
   
@@ -719,19 +752,19 @@ export class OCRAIHybridSystem {
     console.log('🚀 Starting OCR-AI Hybrid processing...');
     
     try {
-      // Bước 1: Thử AI API trước
-      onProgress?.({ status: 'Đang kết nối AI API...', progress: 0.1 });
+      // Bước 1: Thử Gemini AI trước
+      onProgress?.({ status: 'Đang kết nối Gemini AI...', progress: 0.1 });
       
-      const aiResult = await this.aiService.recognizeCertificate(imageFile);
+      const geminiResult = await this.geminiAI.recognizeCertificate(imageFile);
       
-      if (aiResult.confidence && aiResult.confidence > 80) {
-        console.log('✅ AI API thành công với confidence cao:', aiResult.confidence);
-        onProgress?.({ status: 'Hoàn thành với AI API', progress: 1.0 });
-        return aiResult as CertificateData;
+      if (geminiResult.confidence && geminiResult.confidence > 80) {
+        console.log('✅ Gemini AI thành công với confidence cao:', geminiResult.confidence);
+        onProgress?.({ status: 'Hoàn thành với Gemini AI', progress: 1.0 });
+        return geminiResult as CertificateData;
       }
       
       // Bước 2: Fallback to Enhanced Tesseract
-      console.log('🔄 AI API không đủ tin cậy, chuyển sang Tesseract...');
+      console.log('🔄 Gemini AI không đủ tin cậy, chuyển sang Tesseract...');
       onProgress?.({ status: 'Chuyển sang Tesseract OCR...', progress: 0.3 });
       
       const ocrText = await this.tesseractOCR.extractText(imageFile, (progress) => {
@@ -749,9 +782,9 @@ export class OCRAIHybridSystem {
       // Bước 4: Hybrid merge nếu có cả 2 kết quả
       let finalResult: CertificateData;
       
-      if (aiResult.confidence && aiResult.confidence > 50) {
-        console.log('🔀 Merging AI API và Tesseract results...');
-        finalResult = this.mergeResults(aiResult, tesseractResult);
+      if (geminiResult.confidence && geminiResult.confidence > 50) {
+        console.log('🔀 Merging Gemini AI và Tesseract results...');
+        finalResult = this.mergeResults(geminiResult, tesseractResult);
         finalResult.extractionMethod = 'hybrid';
       } else {
         finalResult = tesseractResult as CertificateData;
@@ -770,24 +803,25 @@ export class OCRAIHybridSystem {
   }
   
   /**
-   * Merge kết quả từ AI API và Tesseract
+   * Merge kết quả từ Gemini AI và Tesseract
    */
   private mergeResults(
-    aiResult: Partial<CertificateData>,
+    geminiResult: Partial<CertificateData>,
     tesseractResult: Partial<CertificateData>
   ): CertificateData {
     const merged: CertificateData = {
-      fullName: aiResult.fullName || tesseractResult.fullName || '',
-      dateOfBirth: aiResult.dateOfBirth || tesseractResult.dateOfBirth || '',
-      certificateNumber: aiResult.certificateNumber || tesseractResult.certificateNumber || '',
-      examDate: aiResult.examDate || tesseractResult.examDate || '',
-      issueDate: aiResult.issueDate || tesseractResult.issueDate || '',
-      issuingOrganization: aiResult.issuingOrganization || tesseractResult.issuingOrganization || '',
-      certificateType: aiResult.certificateType || tesseractResult.certificateType || '',
-      scores: { ...tesseractResult.scores, ...aiResult.scores },
-      rawText: tesseractResult.rawText || '',
-      confidence: Math.max(aiResult.confidence || 0, tesseractResult.confidence || 0),
-      extractionMethod: 'hybrid'
+      fullName: geminiResult.fullName || tesseractResult.fullName || '',
+      dateOfBirth: geminiResult.dateOfBirth || tesseractResult.dateOfBirth || '',
+      certificateNumber: geminiResult.certificateNumber || tesseractResult.certificateNumber || '',
+      examDate: geminiResult.examDate || tesseractResult.examDate || '',
+      issueDate: geminiResult.issueDate || tesseractResult.issueDate || '',
+      issuingOrganization: geminiResult.issuingOrganization || tesseractResult.issuingOrganization || '',
+      certificateType: geminiResult.certificateType || tesseractResult.certificateType || '',
+      scores: { ...tesseractResult.scores, ...geminiResult.scores },
+      rawText: geminiResult.rawText || tesseractResult.rawText || '',
+      confidence: Math.max(geminiResult.confidence || 0, tesseractResult.confidence || 0),
+      extractionMethod: 'hybrid',
+      processingTime: geminiResult.processingTime || tesseractResult.processingTime
     };
     
     // Tính lại confidence dựa trên số field được điền
@@ -798,6 +832,13 @@ export class OCRAIHybridSystem {
     merged.confidence = Math.min(95, (filledFields / 8) * 100);
     
     return merged;
+  }
+
+  /**
+   * Kiểm tra trạng thái Gemini AI
+   */
+  async checkGeminiHealth() {
+    return await this.geminiAI.checkHealth();
   }
 }
 

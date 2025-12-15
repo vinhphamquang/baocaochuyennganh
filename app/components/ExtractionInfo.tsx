@@ -11,17 +11,17 @@ export default function ExtractionInfo({ method, confidence, processingTime }: E
     switch (method) {
       case 'ai-api':
         return {
-          name: 'AI API',
+          name: 'Gemini AI 2.5 Flash',
           icon: '🤖',
           color: 'from-blue-500 to-blue-600',
-          description: 'Sử dụng AI API chuyên dụng'
+          description: 'Sử dụng Google Gemini AI'
         };
       case 'hybrid':
         return {
-          name: 'Hybrid AI',
+          name: 'Hybrid AI + OCR',
           icon: '🔀',
           color: 'from-purple-500 to-purple-600',
-          description: 'Kết hợp AI API + Tesseract OCR'
+          description: 'Kết hợp Gemini AI + Tesseract OCR'
         };
       default:
         return {
