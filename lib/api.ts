@@ -35,7 +35,11 @@ export const authAPI = {
     const result = await response.json()
 
     if (!response.ok) {
-      throw new Error(result.message || 'Đăng ký thất bại')
+      // Handle rate limit error
+      if (response.status === 429) {
+        throw new Error('Quá nhiều lần thử. Vui lòng đợi một chút rồi thử lại.')
+      }
+      throw new Error(result.message || result.error || 'Đăng ký thất bại')
     }
 
     return result
@@ -53,7 +57,11 @@ export const authAPI = {
     const result = await response.json()
 
     if (!response.ok) {
-      throw new Error(result.message || 'Đăng nhập thất bại')
+      // Handle rate limit error
+      if (response.status === 429) {
+        throw new Error('Quá nhiều lần thử đăng nhập. Vui lòng đợi 15 phút rồi thử lại.')
+      }
+      throw new Error(result.message || result.error || 'Đăng nhập thất bại')
     }
 
     return result

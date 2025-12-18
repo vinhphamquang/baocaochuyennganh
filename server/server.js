@@ -1,15 +1,19 @@
+// Load environment variables first
+require('dotenv').config({ path: '.env' })
+
 const express = require('express')
 const mongoose = require('mongoose')
 const cors = require('cors')
 const helmet = require('helmet')
 const rateLimit = require('express-rate-limit')
-require('dotenv').config()
 
 const authRoutes = require('./routes/auth')
 const certificateRoutes = require('./routes/certificates')
 const adminRoutes = require('./routes/admin')
 const commentRoutes = require('./routes/comments')
 const aiOcrRoutes = require('./routes/ai-ocr')
+const templateRoutes = require('./routes/templates-simple')
+const reportRoutes = require('./routes/reports-simple')
 const errorLogger = require('./middleware/errorLogger')
 
 const app = express()
@@ -30,12 +34,21 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }))
 
-// Rate limiting
+// Rate limiting - Tăng giới hạn cho development
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  max: 1000 // limit each IP to 1000 requests per windowMs (tăng từ 100)
 })
 app.use(limiter)
+
+// Auth-specific rate limiting (higher limit for login/register)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 50, // 50 auth attempts per 15 minutes per IP
+  message: { error: 'Quá nhiều lần thử đăng nhập. Vui lòng thử lại sau 15 phút.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }))
@@ -89,11 +102,13 @@ process.on('SIGINT', async () => {
 connectDB()
 
 // Routes
-app.use('/api/auth', authRoutes)
+app.use('/api/auth', authLimiter, authRoutes)
 app.use('/api/certificates', certificateRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/comments', commentRoutes)
 app.use('/api/ai-ocr', aiOcrRoutes)
+app.use('/api/templates', templateRoutes)
+app.use('/api/reports', reportRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -106,6 +121,15 @@ app.use(errorLogger)
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack)
+  
+  // Handle rate limit errors
+  if (err.status === 429) {
+    return res.status(429).json({
+      error: 'Quá nhiều requests. Vui lòng thử lại sau.',
+      retryAfter: err.retryAfter
+    })
+  }
+  
   res.status(500).json({ 
     message: 'Có lỗi xảy ra trên server',
     error: process.env.NODE_ENV === 'development' ? err.message : {}

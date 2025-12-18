@@ -7,10 +7,15 @@ const SystemLogger = require('../utils/logger')
 
 const router = express.Router()
 
-// Register
+// Register - Chỉ cho phép đăng ký user thường, không cho phép đăng ký admin
 router.post('/register', async (req, res) => {
   try {
     const { fullName, email, password, isAdmin } = req.body
+
+    // Không cho phép đăng ký admin qua API
+    if (isAdmin) {
+      return res.status(403).json({ message: 'Không được phép đăng ký tài khoản admin' })
+    }
 
     // Check if user already exists
     const existingUser = await User.findOne({ email })
@@ -18,12 +23,12 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'Email đã được sử dụng' })
     }
 
-    // Create new user
+    // Create new user - chỉ tạo user thường
     const user = new User({
       fullName,
       email,
       password,
-      role: isAdmin ? 'admin' : 'user'
+      role: 'user' // Luôn tạo user thường
     })
 
     await user.save()

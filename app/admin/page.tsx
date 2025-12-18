@@ -80,8 +80,73 @@ interface AdminComment {
   updatedAt: string
 }
 
+interface CertificateTemplate {
+  _id: string
+  name: string
+  certificateType: string
+  description: string
+  patterns: {
+    namePatterns: Array<{ pattern: string; description: string; priority: number }>
+    dobPatterns: Array<{ pattern: string; description: string; priority: number }>
+    certificateNumberPatterns: Array<{ pattern: string; description: string; priority: number }>
+    examDatePatterns: Array<{ pattern: string; description: string; priority: number }>
+    scorePatterns: Array<{ 
+      skill: string
+      pattern: string
+      description: string
+      minScore: number
+      maxScore: number
+      priority: number
+    }>
+  }
+  scoreConfig: {
+    skills: string[]
+    hasOverall: boolean
+    hasTotal: boolean
+    minScore: number
+    maxScore: number
+    scoreType: 'decimal' | 'integer'
+  }
+  usage: {
+    totalProcessed: number
+    successfulExtractions: number
+    lastUsed?: string
+    averageConfidence: number
+  }
+  isActive: boolean
+  version: string
+  createdAt: string
+  updatedAt: string
+}
+
+interface ReportData {
+  overview: {
+    totalUsers: number
+    activeUsers: number
+    newUsersInPeriod: number
+    totalCertificates: number
+    certificatesInPeriod: number
+    completedCertificates: number
+    failedCertificates: number
+    successRate: number
+  }
+  certificatesByType: Array<{ _id: string; count: number }>
+  dailyStats: Array<{
+    date: string
+    processed: number
+    completed: number
+    successRate: number
+  }>
+  topUsers: Array<{
+    userId: string
+    fullName: string
+    email: string
+    certificatesProcessed: number
+  }>
+}
+
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'certificates' | 'comments' | 'logs'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'certificates' | 'templates' | 'reports' | 'comments' | 'logs'>('overview')
   const [users, setUsers] = useState<User[]>([])
   const [certificates, setCertificates] = useState<Certificate[]>([])
   const [statistics, setStatistics] = useState<Statistics | null>(null)
@@ -99,6 +164,28 @@ export default function AdminDashboard() {
   const [loadingComments, setLoadingComments] = useState(false)
   const [commentToReport, setCommentToReport] = useState<AdminComment | null>(null)
   const [isReporting, setIsReporting] = useState(false)
+  const [templates, setTemplates] = useState<CertificateTemplate[]>([])
+  const [loadingTemplates, setLoadingTemplates] = useState(false)
+  const [reportData, setReportData] = useState<ReportData | null>(null)
+  const [loadingReports, setLoadingReports] = useState(false)
+  
+  // Template interaction states
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
+  const [editingTemplate, setEditingTemplate] = useState<CertificateTemplate | null>(null)
+  const [templateForm, setTemplateForm] = useState({
+    name: '',
+    certificateType: 'IELTS',
+    description: ''
+  })
+  
+  // Report interaction states
+  const [reportFilters, setReportFilters] = useState({
+    startDate: '',
+    endDate: '',
+    certificateType: '',
+    status: ''
+  })
+  const [realtimeData, setRealtimeData] = useState<any>(null)
 
   // Fetch data từ API
   useEffect(() => {
@@ -179,6 +266,26 @@ export default function AdminDashboard() {
         setComments(commentsData.data)
       }
 
+      // Fetch templates
+      const templatesRes = await fetch('http://localhost:5000/api/templates', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      
+      if (templatesRes.ok) {
+        const templatesData = await templatesRes.json()
+        setTemplates(templatesData.data)
+      }
+
+      // Fetch reports
+      const reportsRes = await fetch('http://localhost:5000/api/reports/overview', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      
+      if (reportsRes.ok) {
+        const reportsData = await reportsRes.json()
+        setReportData(reportsData.data)
+      }
+
       // Fetch logs
       const logsRes = await fetch('http://localhost:5000/api/admin/logs', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -196,6 +303,213 @@ export default function AdminDashboard() {
       setLoading(false)
     }
   }
+
+  // Template management functions
+  const handleCreateTemplate = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('http://localhost:5000/api/templates', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(templateForm)
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        toast.success('Tạo template thành công!')
+        setShowTemplateModal(false)
+        setTemplateForm({ name: '', certificateType: 'IELTS', description: '' })
+        fetchData() // Reload templates
+      } else {
+        toast.error('Lỗi khi tạo template')
+      }
+    } catch (error) {
+      console.error('Create template error:', error)
+      toast.error('Lỗi kết nối')
+    }
+  }
+
+  const handleEditTemplate = (template: CertificateTemplate) => {
+    setEditingTemplate(template)
+    setTemplateForm({
+      name: template.name,
+      certificateType: template.certificateType,
+      description: template.description
+    })
+    setShowTemplateModal(true)
+  }
+
+  const handleUpdateTemplate = async () => {
+    if (!editingTemplate) return
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`http://localhost:5000/api/templates/${editingTemplate._id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(templateForm)
+      })
+
+      if (response.ok) {
+        toast.success('Cập nhật template thành công!')
+        setShowTemplateModal(false)
+        setEditingTemplate(null)
+        setTemplateForm({ name: '', certificateType: 'IELTS', description: '' })
+        fetchData() // Reload templates
+      } else {
+        toast.error('Lỗi khi cập nhật template')
+      }
+    } catch (error) {
+      console.error('Update template error:', error)
+      toast.error('Lỗi kết nối')
+    }
+  }
+
+  const handleDeleteTemplate = async (templateId: string) => {
+    if (!confirm('Bạn có chắc muốn xóa template này?')) return
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`http://localhost:5000/api/templates/${templateId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+
+      if (response.ok) {
+        toast.success('Xóa template thành công!')
+        fetchData() // Reload templates
+      } else {
+        toast.error('Lỗi khi xóa template')
+      }
+    } catch (error) {
+      console.error('Delete template error:', error)
+      toast.error('Lỗi kết nối')
+    }
+  }
+
+  const handleToggleTemplate = async (templateId: string) => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`http://localhost:5000/api/templates/${templateId}/toggle`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        toast.success(result.message)
+        fetchData() // Reload templates
+      } else {
+        toast.error('Lỗi khi thay đổi trạng thái')
+      }
+    } catch (error) {
+      console.error('Toggle template error:', error)
+      toast.error('Lỗi kết nối')
+    }
+  }
+
+  const handleTestTemplate = async (templateId: string) => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`http://localhost:5000/api/templates/${templateId}/test`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        toast.success(`Test thành công! Độ chính xác: ${result.data.confidence}%`)
+      } else {
+        toast.error('Lỗi khi test template')
+      }
+    } catch (error) {
+      console.error('Test template error:', error)
+      toast.error('Lỗi kết nối')
+    }
+  }
+
+  // Report functions
+  const handleApplyFilters = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const queryParams = new URLSearchParams(reportFilters).toString()
+      const response = await fetch(`http://localhost:5000/api/reports/overview?${queryParams}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setReportData(result.data)
+        toast.success('Đã áp dụng bộ lọc')
+      }
+    } catch (error) {
+      console.error('Apply filters error:', error)
+      toast.error('Lỗi khi áp dụng bộ lọc')
+    }
+  }
+
+  const handleExportReport = async (reportType: string, format: string = 'json') => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('http://localhost:5000/api/reports/export', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          reportType,
+          format,
+          filters: reportFilters
+        })
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${reportType}_report.${format}`
+        a.click()
+        toast.success('Xuất báo cáo thành công!')
+      }
+    } catch (error) {
+      console.error('Export report error:', error)
+      toast.error('Lỗi khi xuất báo cáo')
+    }
+  }
+
+  // Fetch realtime data
+  const fetchRealtimeData = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('http://localhost:5000/api/reports/realtime', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setRealtimeData(result.data)
+      }
+    } catch (error) {
+      console.error('Fetch realtime data error:', error)
+    }
+  }
+
+  // Auto-refresh realtime data
+  useEffect(() => {
+    if (activeTab === 'reports') {
+      fetchRealtimeData()
+      const interval = setInterval(fetchRealtimeData, 30000) // Every 30 seconds
+      return () => clearInterval(interval)
+    }
+  }, [activeTab])
 
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
@@ -484,15 +798,22 @@ export default function AdminDashboard() {
           </form>
 
           <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-center text-sm text-gray-600 mb-3">
-              Chưa có tài khoản admin?
-            </p>
-            <a
-              href="/admin/register"
-              className="block w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-xl font-semibold hover:bg-gray-200 transition-colors text-center"
-            >
-              Đăng ký Admin
-            </a>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <CogIcon className="h-5 w-5 text-blue-400" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">
+                    Tài khoản Admin mặc định
+                  </h3>
+                  <div className="mt-2 text-sm text-blue-700">
+                    <p>📧 Email: <code className="bg-blue-100 px-1 rounded">admin@certificateextraction.com</code></p>
+                    <p>🔒 Mật khẩu: <code className="bg-blue-100 px-1 rounded">admin123456</code></p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="mt-4 text-center">
@@ -523,6 +844,8 @@ export default function AdminDashboard() {
     { id: 'overview', name: 'Tổng quan', icon: ChartBarIcon },
     { id: 'users', name: 'Người dùng', icon: UsersIcon },
     { id: 'certificates', name: 'Chứng chỉ', icon: DocumentTextIcon },
+    { id: 'templates', name: 'Mẫu chứng chỉ', icon: DocumentTextIcon },
+    { id: 'reports', name: 'Báo cáo', icon: ChartBarIcon },
     { id: 'comments', name: 'Bình luận', icon: ChatBubbleLeftRightIcon },
     { id: 'logs', name: 'Nhật ký', icon: CogIcon }
   ]
@@ -990,6 +1313,411 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {/* Templates Tab */}
+        {activeTab === 'templates' && (
+          <div className="bg-white shadow-lg rounded-xl overflow-hidden">
+            <div className="px-6 py-4 bg-gradient-to-r from-purple-50 to-pink-50 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">🎯 Quản lý mẫu chứng chỉ</h2>
+              <p className="text-sm text-gray-600 mt-1">Cập nhật và quản lý các mẫu nhận dạng chứng chỉ</p>
+            </div>
+            
+            <div className="p-6">
+              {/* Templates Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <DocumentTextIcon className="h-8 w-8 text-blue-600" />
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-blue-600">Tổng mẫu</p>
+                      <p className="text-2xl font-bold text-blue-700">{templates.length}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-green-50 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <div className="h-8 w-8 bg-green-600 rounded flex items-center justify-center">
+                      <span className="text-white text-sm">✓</span>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-green-600">Đang hoạt động</p>
+                      <p className="text-2xl font-bold text-green-700">
+                        {templates.filter(t => t.isActive).length}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <ChartBarIcon className="h-8 w-8 text-purple-600" />
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-purple-600">Độ chính xác TB</p>
+                      <p className="text-2xl font-bold text-purple-700">
+                        {templates.length > 0 
+                          ? Math.round(templates.reduce((acc, t) => acc + t.usage.averageConfidence, 0) / templates.length)
+                          : 0}%
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-orange-50 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <CogIcon className="h-8 w-8 text-orange-600" />
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-orange-600">Đã xử lý</p>
+                      <p className="text-2xl font-bold text-orange-700">
+                        {templates.reduce((acc, t) => acc + t.usage.totalProcessed, 0)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Add Template Button */}
+              <div className="mb-6 flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900">Danh sách mẫu chứng chỉ</h3>
+                <button
+                  onClick={() => setShowTemplateModal(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                >
+                  + Thêm mẫu mới
+                </button>
+              </div>
+
+              {/* Templates List */}
+              {templates.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Mẫu chứng chỉ
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Loại
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Hiệu suất
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Trạng thái
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Thao tác
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {templates.map((template) => (
+                        <tr key={template._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{template.name}</div>
+                              <div className="text-sm text-gray-500">{template.description}</div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                              {template.certificateType}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div>
+                              <div>Đã xử lý: {template.usage.totalProcessed}</div>
+                              <div>Thành công: {template.usage.successfulExtractions}</div>
+                              <div>Độ chính xác: {Math.round(template.usage.averageConfidence)}%</div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              template.isActive 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {template.isActive ? 'Hoạt động' : 'Tạm dừng'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex items-center space-x-3">
+                              <button 
+                                onClick={() => handleEditTemplate(template)}
+                                className="text-blue-600 hover:text-blue-900 font-medium"
+                                title="Chỉnh sửa template"
+                              >
+                                ✏️ Sửa
+                              </button>
+                              <button 
+                                onClick={() => handleTestTemplate(template._id)}
+                                className="text-green-600 hover:text-green-900 font-medium"
+                                title="Test template"
+                              >
+                                🧪 Test
+                              </button>
+                              <button 
+                                onClick={() => handleToggleTemplate(template._id)}
+                                className={`font-medium ${
+                                  template.isActive 
+                                    ? 'text-orange-600 hover:text-orange-900' 
+                                    : 'text-green-600 hover:text-green-900'
+                                }`}
+                                title={template.isActive ? 'Tạm dừng' : 'Kích hoạt'}
+                              >
+                                {template.isActive ? '⏸️ Dừng' : '▶️ Bật'}
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteTemplate(template._id)}
+                                className="text-red-600 hover:text-red-900 font-medium"
+                                title="Xóa template"
+                              >
+                                🗑️ Xóa
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <DocumentTextIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500 text-lg">Chưa có mẫu chứng chỉ nào</p>
+                  <button 
+                    onClick={() => setShowTemplateModal(true)}
+                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    + Thêm mẫu mới
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Reports Tab */}
+        {activeTab === 'reports' && (
+          <div className="space-y-6">
+            {/* Report Filters */}
+            <div className="bg-white shadow-lg rounded-xl p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">🔍 Bộ lọc báo cáo</h2>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Từ ngày</label>
+                  <input
+                    type="date"
+                    value={reportFilters.startDate}
+                    onChange={(e) => setReportFilters({...reportFilters, startDate: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Đến ngày</label>
+                  <input
+                    type="date"
+                    value={reportFilters.endDate}
+                    onChange={(e) => setReportFilters({...reportFilters, endDate: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Loại chứng chỉ</label>
+                  <select
+                    value={reportFilters.certificateType}
+                    onChange={(e) => setReportFilters({...reportFilters, certificateType: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Tất cả</option>
+                    <option value="IELTS">IELTS</option>
+                    <option value="TOEIC">TOEIC</option>
+                    <option value="VSTEP">VSTEP</option>
+                    <option value="TOEFL">TOEFL</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Trạng thái</label>
+                  <select
+                    value={reportFilters.status}
+                    onChange={(e) => setReportFilters({...reportFilters, status: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Tất cả</option>
+                    <option value="completed">Hoàn thành</option>
+                    <option value="processing">Đang xử lý</option>
+                    <option value="failed">Thất bại</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={handleApplyFilters}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                >
+                  🔍 Áp dụng bộ lọc
+                </button>
+                <button
+                  onClick={() => handleExportReport('overview', 'json')}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
+                >
+                  📊 Xuất JSON
+                </button>
+                <button
+                  onClick={() => handleExportReport('overview', 'csv')}
+                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium"
+                >
+                  📋 Xuất CSV
+                </button>
+              </div>
+            </div>
+
+            {/* Realtime Data */}
+            {realtimeData && (
+              <div className="bg-white shadow-lg rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">⚡ Dữ liệu thời gian thực</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-blue-50 rounded-lg p-3 text-center">
+                    <p className="text-sm text-blue-600">Đang xử lý</p>
+                    <p className="text-2xl font-bold text-blue-700">{realtimeData.currentProcessing}</p>
+                  </div>
+                  <div className="bg-yellow-50 rounded-lg p-3 text-center">
+                    <p className="text-sm text-yellow-600">Hàng đợi</p>
+                    <p className="text-2xl font-bold text-yellow-700">{realtimeData.queueLength}</p>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-3 text-center">
+                    <p className="text-sm text-green-600">User online</p>
+                    <p className="text-2xl font-bold text-green-700">{realtimeData.activeUsers}</p>
+                  </div>
+                  <div className="bg-purple-50 rounded-lg p-3 text-center">
+                    <p className="text-sm text-purple-600">Tải hệ thống</p>
+                    <p className="text-2xl font-bold text-purple-700">{realtimeData.systemLoad}%</p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Cập nhật lần cuối: {new Date(realtimeData.lastUpdated).toLocaleTimeString('vi-VN')}</p>
+              </div>
+            )}
+
+            {/* Report Header */}
+            <div className="bg-white shadow-lg rounded-xl p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">📊 Báo cáo thống kê hệ thống</h2>
+              
+              {reportData && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white">
+                    <h3 className="text-sm font-medium opacity-90">Tổng người dùng</h3>
+                    <p className="text-3xl font-bold">{reportData.overview.totalUsers}</p>
+                    <p className="text-sm opacity-75">+{reportData.overview.newUsersInPeriod} mới</p>
+                  </div>
+                  <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-4 text-white">
+                    <h3 className="text-sm font-medium opacity-90">Chứng chỉ xử lý</h3>
+                    <p className="text-3xl font-bold">{reportData.overview.totalCertificates}</p>
+                    <p className="text-sm opacity-75">Tỷ lệ thành công: {reportData.overview.successRate}%</p>
+                  </div>
+                  <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 text-white">
+                    <h3 className="text-sm font-medium opacity-90">Hoàn thành</h3>
+                    <p className="text-3xl font-bold">{reportData.overview.completedCertificates}</p>
+                    <p className="text-sm opacity-75">Trong kỳ báo cáo</p>
+                  </div>
+                  <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-lg p-4 text-white">
+                    <h3 className="text-sm font-medium opacity-90">Thất bại</h3>
+                    <p className="text-3xl font-bold">{reportData.overview.failedCertificates}</p>
+                    <p className="text-sm opacity-75">Cần xem xét</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Charts Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Certificate Types Chart */}
+              <div className="bg-white shadow-lg rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Phân bố theo loại chứng chỉ</h3>
+                {reportData?.certificatesByType && reportData.certificatesByType.length > 0 ? (
+                  <div className="space-y-3">
+                    {reportData.certificatesByType.map((item, index) => (
+                      <div key={item._id} className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div 
+                            className="w-4 h-4 rounded mr-3"
+                            style={{ backgroundColor: `hsl(${index * 60}, 70%, 50%)` }}
+                          ></div>
+                          <span className="text-sm font-medium">{item._id || 'Khác'}</span>
+                        </div>
+                        <span className="text-sm text-gray-600">{item.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">Chưa có dữ liệu</p>
+                )}
+              </div>
+
+              {/* Top Users */}
+              <div className="bg-white shadow-lg rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Top người dùng tích cực</h3>
+                {reportData?.topUsers && reportData.topUsers.length > 0 ? (
+                  <div className="space-y-3">
+                    {reportData.topUsers.slice(0, 5).map((user, index) => (
+                      <div key={user.userId} className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                            <span className="text-sm font-bold text-blue-600">#{index + 1}</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{user.fullName}</p>
+                            <p className="text-xs text-gray-500">{user.email}</p>
+                          </div>
+                        </div>
+                        <span className="text-sm font-bold text-green-600">
+                          {user.certificatesProcessed} chứng chỉ
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">Chưa có dữ liệu</p>
+                )}
+              </div>
+            </div>
+
+            {/* Daily Stats */}
+            <div className="bg-white shadow-lg rounded-xl p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Thống kê 7 ngày gần nhất</h3>
+              {reportData?.dailyStats && reportData.dailyStats.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2 text-sm font-medium text-gray-600">Ngày</th>
+                        <th className="text-left py-2 text-sm font-medium text-gray-600">Đã xử lý</th>
+                        <th className="text-left py-2 text-sm font-medium text-gray-600">Hoàn thành</th>
+                        <th className="text-left py-2 text-sm font-medium text-gray-600">Tỷ lệ thành công</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reportData.dailyStats.map((day) => (
+                        <tr key={day.date} className="border-b">
+                          <td className="py-2 text-sm">{new Date(day.date).toLocaleDateString('vi-VN')}</td>
+                          <td className="py-2 text-sm">{day.processed}</td>
+                          <td className="py-2 text-sm text-green-600">{day.completed}</td>
+                          <td className="py-2 text-sm">
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              day.successRate >= 80 ? 'bg-green-100 text-green-800' :
+                              day.successRate >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {day.successRate}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-8">Chưa có dữ liệu</p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* User Activity Modal */}
@@ -1138,6 +1866,79 @@ export default function AdminDashboard() {
         onLockAccount={handleLockAccountFromReport}
         isLoading={isReporting}
       />
+
+      {/* Template Modal */}
+      {showTemplateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {editingTemplate ? '✏️ Chỉnh sửa mẫu' : '➕ Thêm mẫu mới'}
+              </h3>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tên mẫu</label>
+                <input
+                  type="text"
+                  value={templateForm.name}
+                  onChange={(e) => setTemplateForm({...templateForm, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Nhập tên mẫu chứng chỉ"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Loại chứng chỉ</label>
+                <select
+                  value={templateForm.certificateType}
+                  onChange={(e) => setTemplateForm({...templateForm, certificateType: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="IELTS">IELTS</option>
+                  <option value="TOEIC">TOEIC</option>
+                  <option value="VSTEP">VSTEP</option>
+                  <option value="TOEFL">TOEFL</option>
+                  <option value="HSK">HSK</option>
+                  <option value="JLPT">JLPT</option>
+                  <option value="OTHER">Khác</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
+                <textarea
+                  value={templateForm.description}
+                  onChange={(e) => setTemplateForm({...templateForm, description: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                  placeholder="Mô tả về mẫu chứng chỉ này"
+                />
+              </div>
+            </div>
+            
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowTemplateModal(false)
+                  setEditingTemplate(null)
+                  setTemplateForm({ name: '', certificateType: 'IELTS', description: '' })
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={editingTemplate ? handleUpdateTemplate : handleCreateTemplate}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              >
+                {editingTemplate ? 'Cập nhật' : 'Tạo mẫu'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

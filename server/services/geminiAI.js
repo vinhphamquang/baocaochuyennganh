@@ -6,6 +6,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai')
 class GeminiCertificateExtractor {
   constructor() {
     this.apiKey = process.env.GEMINI_API_KEY
+    console.log('🔑 Gemini API Key check:', this.apiKey ? `Found (${this.apiKey.substring(0, 10)}...)` : 'Not found')
     this.isConfigured = !!this.apiKey && this.apiKey !== 'your-gemini-api-key-here'
     
     if (!this.isConfigured) {
@@ -13,8 +14,9 @@ class GeminiCertificateExtractor {
     } else {
       try {
         this.genAI = new GoogleGenerativeAI(this.apiKey)
-        this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' })
-        console.log('✅ Gemini AI đã được khởi tạo thành công')
+        // Sử dụng gemini-1.5-pro model có sẵn
+        this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-pro' })
+        console.log('✅ Gemini AI đã được khởi tạo thành công với model gemini-1.5-pro')
       } catch (error) {
         console.error('❌ Lỗi khởi tạo Gemini AI:', error.message)
         this.isConfigured = false
@@ -27,12 +29,12 @@ class GeminiCertificateExtractor {
    */
   async extractCertificateInfo(imageBuffer, mimeType) {
     if (!this.isConfigured) {
-      console.log('🔄 Gemini không được cấu hình, sử dụng mock result...')
-      return this.generateMockResult(mimeType)
+      console.log('❌ Gemini không được cấu hình')
+      throw new Error('Gemini API key not configured')
     }
 
     try {
-      console.log('🤖 Đang phân tích chứng chỉ với Gemini 2.5 Flash...')
+      console.log('🤖 Đang phân tích chứng chỉ với Gemini 1.5 Pro...')
       
       const prompt = this.buildExtractionPrompt()
       
@@ -52,8 +54,9 @@ class GeminiCertificateExtractor {
       return this.parseGeminiResponse(text)
     } catch (error) {
       console.error('❌ Gemini AI Error:', error)
-      console.log('🔄 Fallback to mock result...')
-      return this.generateMockResult(mimeType)
+      
+      // Không tự tạo mock data, throw error để fallback sang Tesseract
+      throw error
     }
   }
 
@@ -374,30 +377,77 @@ Confidence score dựa trên độ rõ ràng và đầy đủ của thông tin t
   }
 
   /**
-   * Tạo mock result khi Gemini không khả dụng
+   * Tạo mock result chất lượng cao khi Gemini không khả dụng
    */
   generateMockResult(mimeType) {
-    console.log('🎭 Generating mock Gemini result...')
+    console.log('🎭 Generating high-quality mock Gemini result...')
+    
+    // Tạo dữ liệu mock đa dạng dựa trên thời gian
+    const mockVariants = [
+      {
+        certificateType: 'IELTS',
+        fullName: 'NGUYEN VAN MINH',
+        dateOfBirth: '15/03/1995',
+        certificateNumber: 'IELTS2023VN001',
+        examDate: '12/10/2023',
+        issueDate: '25/10/2023',
+        issuingOrganization: 'British Council Vietnam',
+        scores: {
+          listening: 8.0,
+          reading: 7.5,
+          writing: 7.0,
+          speaking: 8.5,
+          overall: 7.5
+        },
+        confidence: 92,
+        rawText: 'IELTS Test Report Form - Candidate Name: NGUYEN VAN MINH - Overall Band Score: 7.5'
+      },
+      {
+        certificateType: 'TOEIC',
+        fullName: 'TRAN THI LINH',
+        dateOfBirth: '20/08/1992',
+        certificateNumber: 'TOEIC2023VN789',
+        examDate: '05/11/2023',
+        issueDate: '15/11/2023',
+        issuingOrganization: 'ETS Global',
+        scores: {
+          listening: 450,
+          reading: 420,
+          total: 870
+        },
+        confidence: 88,
+        rawText: 'TOEIC Listening and Reading Test - Total Score: 870 - Listening: 450 - Reading: 420'
+      },
+      {
+        certificateType: 'VSTEP',
+        fullName: 'LE HOANG NAM',
+        dateOfBirth: '10/12/1994',
+        certificateNumber: 'VSTEP2023HN456',
+        examDate: '20/09/2023',
+        issueDate: '30/09/2023',
+        issuingOrganization: 'Đại học Quốc gia Hà Nội',
+        scores: {
+          listening: 8.5,
+          reading: 8.0,
+          writing: 7.5,
+          speaking: 8.0,
+          overall: 8.0
+        },
+        confidence: 90,
+        rawText: 'VSTEP Certificate - Overall Score: 8.0 - Listening: 8.5 - Reading: 8.0 - Writing: 7.5 - Speaking: 8.0'
+      }
+    ];
+    
+    // Chọn variant dựa trên thời gian để tạo sự đa dạng
+    const variantIndex = Math.floor(Date.now() / 10000) % mockVariants.length;
+    const selectedVariant = mockVariants[variantIndex];
     
     return {
-      certificateType: 'IELTS',
-      fullName: 'NGUYEN VAN A',
-      dateOfBirth: '15/03/1995',
-      certificateNumber: 'MOCK123456789',
-      examDate: '12/10/2023',
-      issueDate: '25/10/2023',
-      issuingOrganization: 'British Council',
-      scores: {
-        listening: 8.0,
-        reading: 7.5,
-        writing: 7.0,
-        speaking: 8.5,
-        overall: 7.5
-      },
-      confidence: 85,
+      ...selectedVariant,
       extractionMethod: 'gemini-ai-mock',
-      rawText: 'Mock extracted text from Gemini AI simulation',
-      processingTime: 1.2
+      processingTime: 1.2 + Math.random() * 0.8,
+      timestamp: new Date().toISOString(),
+      mockNote: 'Dữ liệu demo chất lượng cao - API Gemini tạm thời không khả dụng do quota'
     }
   }
 
@@ -410,7 +460,7 @@ Confidence score dựa trên độ rõ ràng và đầy đủ của thông tin t
         return {
           status: 'mock',
           message: 'Gemini API key chưa cấu hình - đang chạy mock mode',
-          model: 'gemini-2.0-flash-exp (mock)'
+          model: 'gemini-1.5-pro (mock)'
         }
       }
 
@@ -421,7 +471,7 @@ Confidence score dựa trên độ rõ ràng và đầy đủ của thông tin t
       return {
         status: 'healthy',
         message: 'Gemini AI service hoạt động bình thường',
-        model: 'gemini-2.0-flash-exp'
+        model: 'gemini-1.5-pro'
       }
     } catch (error) {
       return {
