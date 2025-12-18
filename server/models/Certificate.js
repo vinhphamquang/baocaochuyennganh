@@ -20,7 +20,7 @@ const certificateSchema = new mongoose.Schema({
   },
   certificateType: {
     type: String,
-    enum: ['IELTS', 'TOEFL', 'TOEIC', 'VSTEP', 'HSK', 'JLPT', 'OTHER'],
+    enum: ['IELTS', 'TOEFL', 'TOEIC', 'VSTEP', 'HSK', 'JLPT', 'OTHER', 'Unknown'],
     default: 'OTHER'
   },
   processingStatus: {

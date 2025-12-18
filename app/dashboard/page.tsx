@@ -10,8 +10,10 @@ import {
   EnvelopeIcon,
   CalendarIcon,
   ArrowRightOnRectangleIcon,
-  HomeIcon
+  HomeIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline'
+import CertificateDetailModal from '@/app/components/CertificateDetailModal'
 
 interface User {
   _id: string
@@ -53,6 +55,8 @@ export default function Dashboard() {
   const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false)
   const [passwordFormData, setPasswordFormData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [passwordLoading, setPasswordLoading] = useState(false)
+  const [detailModalOpen, setDetailModalOpen] = useState(false)
+  const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null)
 
   useEffect(() => {
     fetchUserInfo()
@@ -114,6 +118,11 @@ export default function Dashboard() {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     router.push('/')
+  }
+
+  const handleViewDetail = (certificate: Certificate) => {
+    setSelectedCertificate(certificate)
+    setDetailModalOpen(true)
   }
 
   const openEditModal = () => {
@@ -494,9 +503,17 @@ export default function Dashboard() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        {cert.processingStatus === 'completed' && (
-                          <span className="text-green-600 text-sm">
-                            ✓ Hoàn thành
+                        {cert.processingStatus === 'completed' && cert.extractedData ? (
+                          <button
+                            onClick={() => handleViewDetail(cert)}
+                            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 hover:text-blue-700 transition-colors"
+                          >
+                            <EyeIcon className="h-4 w-4" />
+                            Xem chi tiết
+                          </button>
+                        ) : (
+                          <span className="text-gray-400 text-sm">
+                            Chưa có dữ liệu
                           </span>
                         )}
                       </td>
@@ -651,6 +668,13 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Certificate Detail Modal */}
+      <CertificateDetailModal
+        isOpen={detailModalOpen}
+        onClose={() => setDetailModalOpen(false)}
+        certificate={selectedCertificate}
+      />
     </div>
   )
 }

@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { processImageWithAI, OCRProgress } from '@/lib/ocr-ai-hybrid'
 import ProcessingStatus from './ProcessingStatus'
 import QualityMetrics from './QualityMetrics'
+import EditableExtractionForm from './EditableExtractionForm'
 
 interface ExtractedData {
   fullName: string
@@ -310,7 +311,13 @@ export default function UploadSection() {
         toast.success('Đã lưu vào lịch sử!')
       } else {
         const data = await response.json()
-        toast.error(data.message || 'Lỗi khi lưu')
+        console.error('Save error response:', data)
+        
+        if (response.status === 401) {
+          toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.')
+        } else {
+          toast.error(data.message || 'Lỗi khi lưu vào lịch sử')
+        }
       }
     } catch (error) {
       console.error('Save error:', error)
@@ -530,178 +537,15 @@ export default function UploadSection() {
             </div>
           )}
 
-          {/* Extracted Data */}
+          {/* Extracted Data with Editable Form */}
           {extractedData && (
-            <div key={formKey} className="mt-12 bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-xl border border-gray-200 p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-900">Thông tin đã trích xuất</h3>
-                  <p className="text-sm text-gray-600">Dữ liệu từ chứng chỉ {extractedData.certificateType}</p>
-                </div>
-              </div>
-              
-              {/* Quality Metrics */}
-              {extractedData.extractionMethod && (
-                <div className="mb-6">
-                  <QualityMetrics 
-                    confidence={extractedData.confidence || 0}
-                    extractionMethod={extractedData.extractionMethod}
-                    fieldsExtracted={Object.values(extractedData).filter(value => 
-                      value && (typeof value === 'string' ? value.trim() && value !== '(Chưa có dữ liệu)' : true)
-                    ).length}
-                    totalFields={8}
-                    processingTime={extractedData.processingTime}
-                  />
-                </div>
-              )}
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Họ và tên - Highlighted */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                    Họ và tên
-                  </label>
-                  <div className="w-full px-5 py-4 border-2 border-blue-500 rounded-xl bg-gradient-to-r from-blue-50 to-white shadow-md hover:shadow-lg transition-shadow">
-                    <p className="font-bold text-xl text-gray-900">
-                      {extractedData.fullName || '(Chưa có dữ liệu)'}
-                    </p>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">📅 Ngày sinh</label>
-                  <div className="w-full px-5 py-4 border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
-                    <p className="font-semibold text-base text-gray-900">{extractedData.dateOfBirth || '(Chưa có dữ liệu)'}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">🎓 Loại chứng chỉ</label>
-                  <div className="w-full px-5 py-4 border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
-                    <p className="font-semibold text-base text-blue-600">{extractedData.certificateType || '(Chưa có dữ liệu)'}</p>
-                  </div>
-                </div>
-                
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">🔢 Số chứng chỉ</label>
-                  <div className="w-full px-5 py-4 border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
-                    <p className="font-mono font-semibold text-base text-gray-900">{extractedData.certificateNumber || '(Chưa có dữ liệu)'}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">📝 Ngày thi</label>
-                  <div className="w-full px-5 py-4 border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
-                    <p className="font-semibold text-base text-gray-900">{extractedData.testDate || '(Chưa có dữ liệu)'}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">✅ Ngày cấp</label>
-                  <div className="w-full px-5 py-4 border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
-                    <p className="font-semibold text-base text-gray-900">{extractedData.issueDate || '(Chưa có dữ liệu)'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Scores */}
-              <div className="mt-8 pt-8 border-t-2 border-gray-200">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg flex items-center justify-center shadow-md">
-                    <span className="text-2xl">⭐</span>
-                  </div>
-                  <h4 className="text-xl font-bold text-gray-900">Điểm số chi tiết</h4>
-                </div>
-                
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  {/* Overall Score - Highlighted */}
-                  <div className="col-span-2 md:col-span-1">
-                    <label className="block text-sm font-bold text-yellow-700 mb-2 text-center">🏆 TỔNG</label>
-                    <div className="w-full px-4 py-6 border-4 border-yellow-400 rounded-2xl bg-gradient-to-br from-yellow-50 to-yellow-100 shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
-                      <p className="font-black text-5xl text-center text-yellow-700">{extractedData.scores.overall || '0'}</p>
-                      <p className="text-xs text-center text-yellow-600 mt-1 font-semibold">Band Score</p>
-                    </div>
-                  </div>
-                  
-                  {/* Listening */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 text-center">🎧 Nghe</label>
-                    <div className="w-full px-4 py-6 border-2 border-blue-200 rounded-xl bg-gradient-to-br from-blue-50 to-white shadow-md hover:shadow-lg transition-all">
-                      <p className="font-bold text-3xl text-center text-blue-600">{extractedData.scores.listening || '0'}</p>
-                    </div>
-                  </div>
-                  
-                  {/* Reading */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 text-center">📖 Đọc</label>
-                    <div className="w-full px-4 py-6 border-2 border-green-200 rounded-xl bg-gradient-to-br from-green-50 to-white shadow-md hover:shadow-lg transition-all">
-                      <p className="font-bold text-3xl text-center text-green-600">{extractedData.scores.reading || '0'}</p>
-                    </div>
-                  </div>
-                  
-                  {/* Writing */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 text-center">✍️ Viết</label>
-                    <div className="w-full px-4 py-6 border-2 border-purple-200 rounded-xl bg-gradient-to-br from-purple-50 to-white shadow-md hover:shadow-lg transition-all">
-                      <p className="font-bold text-3xl text-center text-purple-600">{extractedData.scores.writing || '0'}</p>
-                    </div>
-                  </div>
-                  
-                  {/* Speaking */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 text-center">🗣️ Nói</label>
-                    <div className="w-full px-4 py-6 border-2 border-red-200 rounded-xl bg-gradient-to-br from-red-50 to-white shadow-md hover:shadow-lg transition-all">
-                      <p className="font-bold text-3xl text-center text-red-600">{extractedData.scores.speaking || '0'}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="mt-8 space-y-4">
-                {/* Save to History Button - Only show if logged in */}
-                {localStorage.getItem('token') && (
-                  <div className="flex justify-center">
-                    <button
-                      onClick={saveToHistory}
-                      className="btn-primary px-8 py-3 text-lg flex items-center gap-2"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                      </svg>
-                      Lưu vào lịch sử
-                    </button>
-                  </div>
-                )}
-                
-                {/* Export Buttons */}
-                <div className="flex flex-wrap gap-4 justify-center">
-                  <button
-                    onClick={() => exportData('json')}
-                    className="btn-secondary"
-                  >
-                    Xuất JSON
-                  </button>
-                  <button
-                    onClick={() => exportData('csv')}
-                    className="btn-secondary"
-                  >
-                    Xuất CSV
-                  </button>
-                  <button
-                    onClick={() => exportData('excel')}
-                    className="btn-primary"
-                  >
-                    Xuất Excel
-                  </button>
-                </div>
-              </div>
+            <div key={formKey} className="mt-12">
+              <EditableExtractionForm
+                data={extractedData}
+                onDataChange={(newData) => setExtractedData(newData)}
+                onSave={saveToHistory}
+                onExport={exportData}
+              />
             </div>
           )}
         </div>

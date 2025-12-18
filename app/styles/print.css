@@ -1,0 +1,83 @@
+/* Print styles for Certificate Detail Modal */
+@media print {
+  /* Hide unnecessary elements */
+  .print\\:hidden {
+    display: none !important;
+  }
+  
+  /* Reset modal styles for print */
+  .print\\:relative {
+    position: relative !important;
+  }
+  
+  .print\\:z-0 {
+    z-index: 0 !important;
+  }
+  
+  .print\\:shadow-none {
+    box-shadow: none !important;
+  }
+  
+  .print\\:rounded-none {
+    border-radius: 0 !important;
+  }
+  
+  .print\\:max-w-none {
+    max-width: none !important;
+  }
+  
+  /* Header styles for print */
+  .print\\:bg-white {
+    background: white !important;
+  }
+  
+  .print\\:border-b {
+    border-bottom: 1px solid #e5e7eb !important;
+  }
+  
+  .print\\:border-gray-200 {
+    border-color: #e5e7eb !important;
+  }
+  
+  .print\\:text-gray-900 {
+    color: #111827 !important;
+  }
+  
+  .print\\:text-gray-600 {
+    color: #4b5563 !important;
+  }
+  
+  /* Page setup */
+  @page {
+    margin: 1in;
+    size: A4;
+  }
+  
+  /* Ensure content fits on page */
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  /* Certificate detail specific styles */
+  .certificate-detail-modal {
+    page-break-inside: avoid;
+  }
+  
+  .certificate-section {
+    page-break-inside: avoid;
+    margin-bottom: 1rem;
+  }
+  
+  /* Ensure colors print correctly */
+  .bg-gradient-to-r {
+    background: #3b82f6 !important;
+    color: white !important;
+  }
+  
+  /* Score cards */
+  .score-card {
+    border: 1px solid #d1d5db;
+    page-break-inside: avoid;
+  }
+}

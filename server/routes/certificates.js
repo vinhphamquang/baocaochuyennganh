@@ -27,6 +27,10 @@ const upload = multer({
 // Upload and process certificate
 router.post('/upload', auth, upload.single('certificate'), async (req, res) => {
   try {
+    console.log('📤 Certificate upload request received')
+    console.log('   User ID:', req.userId)
+    console.log('   File:', req.file ? req.file.originalname : 'No file')
+    
     if (!req.file) {
       return res.status(400).json({ message: 'Vui lòng chọn file để tải lên' })
     }
@@ -42,7 +46,13 @@ router.post('/upload', auth, upload.single('certificate'), async (req, res) => {
     }
 
     // Xác định loại chứng chỉ
-    const certificateType = extractedData.certificateType || 'Unknown'
+    let certificateType = extractedData.certificateType || 'OTHER'
+    
+    // Chuyển đổi các giá trị không hợp lệ
+    const validTypes = ['IELTS', 'TOEFL', 'TOEIC', 'VSTEP', 'HSK', 'JLPT', 'OTHER']
+    if (!validTypes.includes(certificateType)) {
+      certificateType = 'OTHER'
+    }
 
     // Chuẩn hóa dữ liệu
     const normalizedData = {
@@ -77,11 +87,13 @@ router.post('/upload', auth, upload.single('certificate'), async (req, res) => {
     })
 
     await certificate.save()
+    console.log('✅ Certificate saved successfully:', certificate._id)
 
     // Cập nhật số lượng chứng chỉ của user
     await User.findByIdAndUpdate(req.userId, {
       $inc: { certificatesProcessed: 1 }
     })
+    console.log('✅ User certificates count updated')
 
     // Log upload certificate
     const user = await User.findById(req.userId)
