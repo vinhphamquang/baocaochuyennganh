@@ -31,6 +31,10 @@ const userSchema = new mongoose.Schema({
   certificatesProcessed: {
     type: Number,
     default: 0
+  },
+  lastLoginAt: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true

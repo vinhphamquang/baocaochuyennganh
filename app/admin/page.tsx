@@ -502,7 +502,22 @@ export default function AdminDashboard() {
     }
   }
 
-  // Auto-refresh realtime data
+  // Send heartbeat to update user activity
+  const sendHeartbeat = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (token) {
+        await fetch('http://localhost:5000/api/auth/heartbeat', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+      }
+    } catch (error) {
+      console.error('Heartbeat error:', error)
+    }
+  }
+
+  // Auto-refresh realtime data and send heartbeat
   useEffect(() => {
     if (activeTab === 'reports') {
       fetchRealtimeData()
@@ -510,6 +525,13 @@ export default function AdminDashboard() {
       return () => clearInterval(interval)
     }
   }, [activeTab])
+
+  // Send heartbeat every 5 minutes to keep user online status
+  useEffect(() => {
+    sendHeartbeat() // Send immediately
+    const heartbeatInterval = setInterval(sendHeartbeat, 5 * 60 * 1000) // Every 5 minutes
+    return () => clearInterval(heartbeatInterval)
+  }, [])
 
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
@@ -1497,77 +1519,6 @@ export default function AdminDashboard() {
         {/* Reports Tab */}
         {activeTab === 'reports' && (
           <div className="space-y-6">
-            {/* Report Filters */}
-            <div className="bg-white shadow-lg rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">🔍 Bộ lọc báo cáo</h2>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Từ ngày</label>
-                  <input
-                    type="date"
-                    value={reportFilters.startDate}
-                    onChange={(e) => setReportFilters({...reportFilters, startDate: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Đến ngày</label>
-                  <input
-                    type="date"
-                    value={reportFilters.endDate}
-                    onChange={(e) => setReportFilters({...reportFilters, endDate: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Loại chứng chỉ</label>
-                  <select
-                    value={reportFilters.certificateType}
-                    onChange={(e) => setReportFilters({...reportFilters, certificateType: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Tất cả</option>
-                    <option value="IELTS">IELTS</option>
-                    <option value="TOEIC">TOEIC</option>
-                    <option value="VSTEP">VSTEP</option>
-                    <option value="TOEFL">TOEFL</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Trạng thái</label>
-                  <select
-                    value={reportFilters.status}
-                    onChange={(e) => setReportFilters({...reportFilters, status: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Tất cả</option>
-                    <option value="completed">Hoàn thành</option>
-                    <option value="processing">Đang xử lý</option>
-                    <option value="failed">Thất bại</option>
-                  </select>
-                </div>
-              </div>
-              <div className="flex space-x-3">
-                <button
-                  onClick={handleApplyFilters}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-                >
-                  🔍 Áp dụng bộ lọc
-                </button>
-                <button
-                  onClick={() => handleExportReport('overview', 'json')}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
-                >
-                  📊 Xuất JSON
-                </button>
-                <button
-                  onClick={() => handleExportReport('overview', 'csv')}
-                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium"
-                >
-                  📋 Xuất CSV
-                </button>
-              </div>
-            </div>
 
             {/* Realtime Data */}
             {realtimeData && (
@@ -1585,6 +1536,7 @@ export default function AdminDashboard() {
                   <div className="bg-green-50 rounded-lg p-3 text-center">
                     <p className="text-sm text-green-600">User online</p>
                     <p className="text-2xl font-bold text-green-700">{realtimeData.activeUsers}</p>
+                    <p className="text-xs text-green-500 mt-1">Hoạt động 30p qua</p>
                   </div>
                   <div className="bg-purple-50 rounded-lg p-3 text-center">
                     <p className="text-sm text-purple-600">Tải hệ thống</p>
@@ -1626,30 +1578,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Charts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Certificate Types Chart */}
-              <div className="bg-white shadow-lg rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Phân bố theo loại chứng chỉ</h3>
-                {reportData?.certificatesByType && reportData.certificatesByType.length > 0 ? (
-                  <div className="space-y-3">
-                    {reportData.certificatesByType.map((item, index) => (
-                      <div key={item._id} className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <div 
-                            className="w-4 h-4 rounded mr-3"
-                            style={{ backgroundColor: `hsl(${index * 60}, 70%, 50%)` }}
-                          ></div>
-                          <span className="text-sm font-medium">{item._id || 'Khác'}</span>
-                        </div>
-                        <span className="text-sm text-gray-600">{item.count}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-8">Chưa có dữ liệu</p>
-                )}
-              </div>
-
+            <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
               {/* Top Users */}
               <div className="bg-white shadow-lg rounded-xl p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Top người dùng tích cực</h3>
@@ -1678,44 +1607,7 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Daily Stats */}
-            <div className="bg-white shadow-lg rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Thống kê 7 ngày gần nhất</h3>
-              {reportData?.dailyStats && reportData.dailyStats.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-2 text-sm font-medium text-gray-600">Ngày</th>
-                        <th className="text-left py-2 text-sm font-medium text-gray-600">Đã xử lý</th>
-                        <th className="text-left py-2 text-sm font-medium text-gray-600">Hoàn thành</th>
-                        <th className="text-left py-2 text-sm font-medium text-gray-600">Tỷ lệ thành công</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {reportData.dailyStats.map((day) => (
-                        <tr key={day.date} className="border-b">
-                          <td className="py-2 text-sm">{new Date(day.date).toLocaleDateString('vi-VN')}</td>
-                          <td className="py-2 text-sm">{day.processed}</td>
-                          <td className="py-2 text-sm text-green-600">{day.completed}</td>
-                          <td className="py-2 text-sm">
-                            <span className={`px-2 py-1 rounded text-xs ${
-                              day.successRate >= 80 ? 'bg-green-100 text-green-800' :
-                              day.successRate >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {day.successRate}%
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p className="text-gray-500 text-center py-8">Chưa có dữ liệu</p>
-              )}
-            </div>
+
           </div>
         )}
       </div>

@@ -63,6 +63,28 @@ export default function Dashboard() {
     fetchCertificates()
   }, [])
 
+  // Send heartbeat to update user activity
+  const sendHeartbeat = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (token) {
+        await fetch('http://localhost:5000/api/auth/heartbeat', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+      }
+    } catch (error) {
+      console.error('Heartbeat error:', error)
+    }
+  }
+
+  // Send heartbeat every 5 minutes to keep user online status
+  useEffect(() => {
+    sendHeartbeat() // Send immediately
+    const heartbeatInterval = setInterval(sendHeartbeat, 5 * 60 * 1000) // Every 5 minutes
+    return () => clearInterval(heartbeatInterval)
+  }, [])
+
   const fetchUserInfo = async () => {
     try {
       const token = localStorage.getItem('token')

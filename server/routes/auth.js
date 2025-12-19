@@ -84,6 +84,10 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' })
     }
 
+    // Update last login time
+    user.lastLoginAt = new Date()
+    await user.save()
+
     // Log đăng nhập
     await SystemLogger.logUserLogin(user, {
       ipAddress: req.ip,
@@ -121,6 +125,19 @@ router.get('/me', auth, async (req, res) => {
   } catch (error) {
     console.error('Get user error:', error)
     res.status(500).json({ message: 'Lỗi server khi lấy thông tin người dùng' })
+  }
+})
+
+// Update user activity (heartbeat)
+router.post('/heartbeat', auth, async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.userId, {
+      lastLoginAt: new Date()
+    })
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Heartbeat error:', error)
+    res.status(500).json({ message: 'Lỗi server' })
   }
 })
 

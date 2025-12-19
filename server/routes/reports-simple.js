@@ -454,6 +454,8 @@ router.post('/export', adminAuth, async (req, res) => {
 /**
  * GET /api/reports/realtime
  * Dữ liệu thời gian thực từ database
+ * - User online: đếm user có lastLoginAt trong 30 phút qua
+ * - Cập nhật mỗi 30 giây từ frontend
  */
 router.get('/realtime', adminAuth, async (req, res) => {
   try {
@@ -493,10 +495,11 @@ router.get('/realtime', adminAuth, async (req, res) => {
       { $group: { _id: null, avgTime: { $avg: '$processingTime' } } }
     ]);
 
-    // Users hoạt động (đăng nhập trong 24h qua)
+    // Users online (đăng nhập trong 30 phút qua)
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
     const activeUsers = await User.countDocuments({
       isActive: true,
-      // Có thể thêm field lastLoginAt để track chính xác hơn
+      lastLoginAt: { $gte: thirtyMinutesAgo }
     });
 
     const realtimeData = {
