@@ -35,6 +35,87 @@ interface CertificateDetailModalProps {
 export default function CertificateDetailModal({ isOpen, onClose, certificate }: CertificateDetailModalProps) {
   if (!isOpen || !certificate) return null
 
+  // Export functions
+  const exportToJSON = () => {
+    const data = {
+      fileName: certificate.fileName,
+      certificateType: certificate.certificateType,
+      extractedData: certificate.extractedData,
+      createdAt: certificate.createdAt,
+      exportedAt: new Date().toISOString()
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${certificate.fileName}_data.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const exportToCSV = () => {
+    const data = certificate.extractedData
+    const csvContent = [
+      ['Field', 'Value'],
+      ['File Name', certificate.fileName],
+      ['Certificate Type', certificate.certificateType],
+      ['Full Name', data?.fullName || ''],
+      ['Date of Birth', data?.dateOfBirth || ''],
+      ['Certificate Number', data?.certificateNumber || ''],
+      ['Test Date', data?.testDate || ''],
+      ['Issue Date', data?.issueDate || ''],
+      ['Issuing Organization', data?.issuingOrganization || ''],
+      ['Overall Score', data?.scores?.overall || ''],
+      ['Listening Score', data?.scores?.listening || ''],
+      ['Reading Score', data?.scores?.reading || ''],
+      ['Writing Score', data?.scores?.writing || ''],
+      ['Speaking Score', data?.scores?.speaking || ''],
+      ['Processing Date', new Date(certificate.createdAt).toLocaleDateString('vi-VN')],
+      ['Export Date', new Date().toLocaleDateString('vi-VN')]
+    ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n')
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${certificate.fileName}_data.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const exportToExcel = () => {
+    // Create Excel-compatible HTML table
+    const data = certificate.extractedData
+    const excelContent = `
+      <table>
+        <tr><th>Trường thông tin</th><th>Giá trị</th></tr>
+        <tr><td>Tên file</td><td>${certificate.fileName}</td></tr>
+        <tr><td>Loại chứng chỉ</td><td>${certificate.certificateType}</td></tr>
+        <tr><td>Họ và tên</td><td>${data?.fullName || ''}</td></tr>
+        <tr><td>Ngày sinh</td><td>${data?.dateOfBirth || ''}</td></tr>
+        <tr><td>Số chứng chỉ</td><td>${data?.certificateNumber || ''}</td></tr>
+        <tr><td>Ngày thi</td><td>${data?.testDate || ''}</td></tr>
+        <tr><td>Ngày cấp</td><td>${data?.issueDate || ''}</td></tr>
+        <tr><td>Tổ chức cấp</td><td>${data?.issuingOrganization || ''}</td></tr>
+        <tr><td>Điểm tổng</td><td>${data?.scores?.overall || ''}</td></tr>
+        <tr><td>Điểm nghe</td><td>${data?.scores?.listening || ''}</td></tr>
+        <tr><td>Điểm đọc</td><td>${data?.scores?.reading || ''}</td></tr>
+        <tr><td>Điểm viết</td><td>${data?.scores?.writing || ''}</td></tr>
+        <tr><td>Điểm nói</td><td>${data?.scores?.speaking || ''}</td></tr>
+        <tr><td>Ngày xử lý</td><td>${new Date(certificate.createdAt).toLocaleDateString('vi-VN')}</td></tr>
+        <tr><td>Ngày xuất</td><td>${new Date().toLocaleDateString('vi-VN')}</td></tr>
+      </table>
+    `
+
+    const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${certificate.fileName}_data.xls`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('vi-VN', {
       year: 'numeric',
@@ -217,9 +298,9 @@ export default function CertificateDetailModal({ isOpen, onClose, certificate }:
                               <div className="text-xs text-yellow-700">
                                 <div>Thang điểm: 0-9</div>
                                 <div className="font-medium">
-                                  {parseFloat(certificate.extractedData.scores.overall) >= 7.0 ? '🎉 Xuất sắc' :
-                                   parseFloat(certificate.extractedData.scores.overall) >= 6.0 ? '👍 Tốt' :
-                                   parseFloat(certificate.extractedData.scores.overall) >= 5.0 ? '📚 Trung bình' : '💪 Cần cải thiện'}
+                                  {parseFloat(certificate.extractedData.scores.overall || '0') >= 7.0 ? '🎉 Xuất sắc' :
+                                   parseFloat(certificate.extractedData.scores.overall || '0') >= 6.0 ? '👍 Tốt' :
+                                   parseFloat(certificate.extractedData.scores.overall || '0') >= 5.0 ? '📚 Trung bình' : '💪 Cần cải thiện'}
                                 </div>
                               </div>
                             )}
@@ -227,9 +308,9 @@ export default function CertificateDetailModal({ isOpen, onClose, certificate }:
                               <div className="text-xs text-yellow-700">
                                 <div>Thang điểm: 10-990</div>
                                 <div className="font-medium">
-                                  {parseInt(certificate.extractedData.scores.overall) >= 800 ? '🎉 Xuất sắc' :
-                                   parseInt(certificate.extractedData.scores.overall) >= 600 ? '👍 Tốt' :
-                                   parseInt(certificate.extractedData.scores.overall) >= 400 ? '📚 Trung bình' : '💪 Cần cải thiện'}
+                                  {parseInt(certificate.extractedData.scores.overall || '0') >= 800 ? '🎉 Xuất sắc' :
+                                   parseInt(certificate.extractedData.scores.overall || '0') >= 600 ? '👍 Tốt' :
+                                   parseInt(certificate.extractedData.scores.overall || '0') >= 400 ? '📚 Trung bình' : '💪 Cần cải thiện'}
                                 </div>
                               </div>
                             )}
@@ -348,66 +429,80 @@ export default function CertificateDetailModal({ isOpen, onClose, certificate }:
           {/* Footer */}
           <div className="bg-gray-50 px-6 py-4 flex justify-between items-center print:hidden">
             <div className="flex gap-3">
-              <button
-                onClick={() => window.print()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                </svg>
-                In
-              </button>
-              
-              <button
-                onClick={() => {
-                  const data = {
-                    fileName: certificate.fileName,
-                    certificateType: certificate.certificateType,
-                    extractedData: certificate.extractedData,
-                    createdAt: certificate.createdAt
-                  }
-                  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-                  const url = URL.createObjectURL(blob)
-                  const a = document.createElement('a')
-                  a.href = url
-                  a.download = `${certificate.fileName}_data.json`
-                  a.click()
-                  URL.revokeObjectURL(url)
-                }}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center gap-2"
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Tải xuống
-              </button>
+              <div className="relative group">
+                    <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center gap-2">
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Xuất dữ liệu
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    
+                    <div className="absolute bottom-full left-0 mb-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
+                      <div className="py-2">
+                        <button
+                          onClick={exportToExcel}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <span className="text-green-600">📊</span>
+                          Xuất Excel (.xls)
+                        </button>
+                        <button
+                          onClick={exportToCSV}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <span className="text-blue-600">📋</span>
+                          Xuất CSV (.csv)
+                        </button>
+                        <button
+                          onClick={exportToJSON}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <span className="text-purple-600">🔧</span>
+                          Xuất JSON (.json)
+                        </button>
+                      </div>
+                    </div>
+                  </div>
 
-              <button
-                onClick={() => {
-                  const shareText = `🎓 Chứng chỉ ${certificate.certificateType}\n` +
-                    `👤 Họ tên: ${certificate.extractedData?.fullName || 'N/A'}\n` +
-                    `📋 Số chứng chỉ: ${certificate.extractedData?.certificateNumber || 'N/A'}\n` +
-                    `📊 Điểm số: ${certificate.extractedData?.scores?.overall || 'N/A'}\n` +
-                    `📅 Ngày xử lý: ${formatDate(certificate.createdAt)}`
-                  
-                  if (navigator.share) {
-                    navigator.share({
-                      title: 'Thông tin chứng chỉ',
-                      text: shareText
-                    })
-                  } else {
-                    navigator.clipboard.writeText(shareText).then(() => {
-                      alert('Đã sao chép thông tin vào clipboard!')
-                    })
-                  }
-                }}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center gap-2"
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
-                </svg>
-                Chia sẻ
-              </button>
+                  <button
+                    onClick={() => window.print()}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center gap-2"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    In
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const shareText = `🎓 Chứng chỉ ${certificate.certificateType}\n` +
+                        `👤 Họ tên: ${certificate.extractedData?.fullName || 'N/A'}\n` +
+                        `📋 Số chứng chỉ: ${certificate.extractedData?.certificateNumber || 'N/A'}\n` +
+                        `📊 Điểm số: ${certificate.extractedData?.scores?.overall || 'N/A'}\n` +
+                        `📅 Ngày xử lý: ${formatDate(certificate.createdAt)}`
+                      
+                      if (navigator.share) {
+                        navigator.share({
+                          title: 'Thông tin chứng chỉ',
+                          text: shareText
+                        })
+                      } else {
+                        navigator.clipboard.writeText(shareText).then(() => {
+                          alert('Đã sao chép thông tin vào clipboard!')
+                        })
+                      }
+                    }}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center gap-2"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                    </svg>
+                    Chia sẻ
+                  </button>
             </div>
 
             <button

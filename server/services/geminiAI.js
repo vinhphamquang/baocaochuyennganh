@@ -61,41 +61,104 @@ class GeminiCertificateExtractor {
   }
 
   /**
-   * Xây dựng prompt chi tiết cho Gemini
+   * Xây dựng prompt chi tiết cho Gemini với advanced techniques
    */
   buildExtractionPrompt() {
     return `
-Bạn là một chuyên gia trích xuất thông tin chứng chỉ. Hãy phân tích ảnh chứng chỉ này và trích xuất thông tin theo format JSON chính xác.
+Bạn là một chuyên gia AI trích xuất thông tin chứng chỉ với độ chính xác cao. Hãy phân tích ảnh chứng chỉ này và trích xuất thông tin theo format JSON chính xác.
 
-QUAN TRỌNG: Chỉ trả về JSON hợp lệ, không có text giải thích thêm.
+QUAN TRỌNG: 
+- Chỉ trả về JSON hợp lệ, không có text giải thích thêm
+- Nếu không chắc chắn về thông tin nào, để trống thay vì đoán
+- Ưu tiên độ chính xác hơn độ đầy đủ
 
-Các loại chứng chỉ cần nhận dạng:
-- IELTS (International English Language Testing System)
-- TOEFL (Test of English as a Foreign Language) 
-- TOEIC (Test of English for International Communication)
-- VSTEP (Vietnamese Standardized Test of English Proficiency)
-- HSK (Hanyu Shuiping Kaoshi - Chinese Proficiency Test)
-- JLPT (Japanese Language Proficiency Test)
+LOẠI CHỨNG CHỈ CẦN NHẬN DẠNG:
+1. IELTS (International English Language Testing System)
+   - Điểm: 0-9 (bước 0.5)
+   - Kỹ năng: Listening, Reading, Writing, Speaking, Overall Band Score
+   - Tổ chức: British Council, IDP Education, Cambridge Assessment
 
-Thông tin cần trích xuất:
-1. certificateType: Loại chứng chỉ (IELTS/TOEFL/TOEIC/VSTEP/HSK/JLPT/OTHER)
+2. TOEFL iBT (Test of English as a Foreign Language)
+   - Điểm: 0-30 mỗi kỹ năng, 0-120 tổng
+   - Kỹ năng: Reading, Listening, Speaking, Writing
+   - Tổ chức: ETS (Educational Testing Service)
+
+3. TOEIC (Test of English for International Communication)
+   - Điểm: 5-495 mỗi kỹ năng, 10-990 tổng
+   - Kỹ năng: Listening, Reading
+   - Tổ chức: ETS
+
+4. VSTEP (Vietnamese Standardized Test of English Proficiency)
+   - Điểm: 0-10 (bước 0.5)
+   - Kỹ năng: Listening, Reading, Writing, Speaking, Overall
+   - Tổ chức: Bộ Giáo dục và Đào tạo Việt Nam
+
+5. HSK (Hanyu Shuiping Kaoshi - Chinese Proficiency Test)
+   - Cấp độ: HSK 1-6
+   - Điểm: 0-300 (HSK 1-3), 0-300 (HSK 4-6)
+
+6. JLPT (Japanese Language Proficiency Test)
+   - Cấp độ: N1, N2, N3, N4, N5
+   - Kết quả: Pass/Fail với điểm chi tiết
+
+THÔNG TIN CẦN TRÍCH XUẤT:
+
+1. certificateType: Loại chứng chỉ chính xác (IELTS/TOEFL/TOEIC/VSTEP/HSK/JLPT/OTHER)
+
 2. fullName: Họ và tên đầy đủ
-3. dateOfBirth: Ngày sinh (format DD/MM/YYYY hoặc MM/DD/YYYY)
+   - Ưu tiên tên trên chứng chỉ chính thức
+   - Định dạng: "FIRST MIDDLE LAST" hoặc "LAST, FIRST MIDDLE"
+   - Loại bỏ ký tự đặc biệt, chỉ giữ chữ cái và khoảng trắng
+
+3. dateOfBirth: Ngày sinh
+   - Format: DD/MM/YYYY hoặc MM/DD/YYYY
+   - Kiểm tra tính hợp lý (tuổi 10-100)
+
 4. certificateNumber: Số chứng chỉ/mã số
-5. examDate: Ngày thi (format DD/MM/YYYY)
+   - IELTS: Test Report Form Number (thường 8-15 ký tự)
+   - TOEFL: Registration Number
+   - TOEIC: Registration Number
+   - VSTEP: Certificate Number
+   - Loại bỏ khoảng trắng, ký tự đặc biệt không cần thiết
+
+5. examDate: Ngày thi
+   - Format: DD/MM/YYYY
+   - Phải sau ngày sinh và trước ngày hiện tại
+
 6. issueDate: Ngày cấp chứng chỉ
+   - Format: DD/MM/YYYY
+   - Phải sau hoặc bằng ngày thi
+
 7. issuingOrganization: Tổ chức cấp chứng chỉ
-8. scores: Điểm số chi tiết
+   - IELTS: "British Council", "IDP Education", "Cambridge Assessment English"
+   - TOEFL/TOEIC: "ETS"
+   - VSTEP: "Bộ Giáo dục và Đào tạo" hoặc tên trường đại học cụ thể
+
+8. scores: Điểm số chi tiết (object)
+   - Chỉ điền điểm số thực sự có trên chứng chỉ
+   - Kiểm tra phạm vi hợp lệ cho từng loại chứng chỉ
+   - IELTS: listening, reading, writing, speaking, overall (0-9, bước 0.5)
+   - TOEFL: reading, listening, speaking, writing, total (0-30 mỗi skill, 0-120 total)
+   - TOEIC: listening, reading, total (5-495 mỗi skill, 10-990 total)
+   - VSTEP: listening, reading, writing, speaking, overall (0-10, bước 0.5)
+
 9. confidence: Độ tin cậy (0-100)
+   - Dựa trên độ rõ ràng của ảnh và tính đầy đủ của thông tin
+   - 90-100: Ảnh rất rõ, thông tin đầy đủ và chắc chắn
+   - 70-89: Ảnh rõ, hầu hết thông tin chắc chắn
+   - 50-69: Ảnh khá rõ, một số thông tin có thể không chắc chắn
+   - 30-49: Ảnh mờ hoặc thông tin khó đọc
+   - 0-29: Ảnh rất mờ hoặc không thể đọc được
 
-Đặc biệt chú ý điểm số:
-- IELTS: listening, reading, writing, speaking, overall (thang điểm 0-9)
-- TOEFL: reading, listening, speaking, writing, total (thang điểm 0-120)
-- TOEIC: listening, reading, total (thang điểm 10-990)
-- VSTEP: listening, reading, writing, speaking, overall (thang điểm 0-10)
+10. rawText: Toàn bộ text đã nhận dạng được (để debug)
 
-Hãy phân tích kỹ lưỡng và trả về JSON với format:
+VALIDATION RULES:
+- Tên: 2-4 từ, mỗi từ 2-20 ký tự, chỉ chữ cái
+- Ngày tháng: Phải hợp lệ và logic (sinh < thi < cấp)
+- Điểm số: Phải trong phạm vi cho phép của từng loại chứng chỉ
+- Số chứng chỉ: Độ dài và format phù hợp với loại chứng chỉ
 
+OUTPUT FORMAT (JSON):
 {
   "certificateType": "string",
   "fullName": "string", 
@@ -114,11 +177,15 @@ Hãy phân tích kỹ lưỡng và trả về JSON với format:
   },
   "confidence": number,
   "extractionMethod": "gemini-ai",
-  "rawText": "string - text đã nhận dạng được"
+  "rawText": "string"
 }
 
-Nếu không tìm thấy thông tin nào, để trống string "" hoặc null.
-Confidence score dựa trên độ rõ ràng và đầy đủ của thông tin trích xuất được.
+SPECIAL INSTRUCTIONS:
+- Nếu không tìm thấy thông tin, để trống string "" hoặc null
+- Không đoán hoặc tạo ra thông tin không có
+- Ưu tiên độ chính xác hơn độ đầy đủ
+- Confidence score phải phản ánh chính xác độ tin cậy
+- Kiểm tra cross-validation giữa các trường (ví dụ: tổng điểm = tổng các kỹ năng)
 `
   }
 

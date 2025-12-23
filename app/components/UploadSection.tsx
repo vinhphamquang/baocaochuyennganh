@@ -4,10 +4,11 @@ import { useState, useCallback, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { CloudArrowUpIcon, DocumentIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
-import { processImageWithAI, OCRProgress } from '@/lib/ocr-ai-hybrid'
+import { processImage, OCRProgress } from '@/lib/ocr'
 import ProcessingStatus from './ProcessingStatus'
-import QualityMetrics from './QualityMetrics'
 import EditableExtractionForm from './EditableExtractionForm'
+import ImageQualityInfo from './ImageQualityInfo'
+import OCRDebugInfo from './OCRDebugInfo'
 
 interface ExtractedData {
   fullName: string
@@ -27,6 +28,9 @@ interface ExtractedData {
   confidence?: number
   extractionMethod?: 'tesseract' | 'ai-api' | 'hybrid'
   processingTime?: number
+  imageQuality?: 'low' | 'medium' | 'high'
+  enhancementApplied?: string[]
+  rawText?: string
 }
 
 export default function UploadSection() {
@@ -160,30 +164,44 @@ export default function UploadSection() {
         return
       }
 
-      // Xử lý OCR với Tesseract.js
+      // Xử lý OCR với AI-enhanced system
       toast.loading('Đang đọc văn bản từ chứng chỉ...', { id: 'ocr' })
-      setOcrProgress({ status: 'Ảnh đạt yêu cầu, bắt đầu OCR...', progress: 0.2 })
+      setOcrProgress({ status: 'Ảnh đạt yêu cầu, bắt đầu OCR nâng cao...', progress: 0.2 })
       
-      console.log('🔍 Bắt đầu OCR cho file:', file.name)
+      console.log('🔍 Bắt đầu OCR nâng cao cho file:', file.name)
       
-      const ocrData = await processImageWithAI(file, (progress) => {
-        console.log('📊 OCR-AI Progress:', progress)
+      // Import advanced OCR với low-resolution enhancement
+      const { processImage } = await import('@/lib/ocr')
+      
+      const ocrData = await processImage(file, (progress) => {
+        console.log('📊 OCR Progress:', progress)
         setOcrProgress({
           ...progress,
-          progress: 0.2 + (progress.progress * 0.8) // Scale progress from 20% to 100%
+          progress: 0.2 + (progress.progress * 0.6) // Scale progress from 20% to 80%
         })
       })
 
-      console.log('✅ Dữ liệu OCR:', ocrData)
+      console.log('✅ Dữ liệu OCR nâng cao:', ocrData)
+      
+      // AI Validation và Post-processing
+      setOcrProgress({ status: 'Đang xác thực dữ liệu với AI...', progress: 0.85 })
+      
+      const { validateCertificateData } = await import('@/lib/ocr-ai-validator')
+      const validationResult = validateCertificateData(ocrData)
+      
+      console.log('🔍 Kết quả validation:', validationResult)
+      
+      // Use corrected data if available
+      const finalData = validationResult.correctedData || ocrData
       
       // Kiểm tra xem có dữ liệu không
-      const hasData = ocrData.fullName || ocrData.certificateNumber || ocrData.certificateType
+      const hasData = finalData.fullName || finalData.certificateNumber || finalData.certificateType
       
       if (!hasData) {
-        console.warn('⚠️ OCR không trích xuất được thông tin. Raw text:', ocrData.rawText?.substring(0, 200))
+        console.warn('⚠️ OCR không trích xuất được thông tin. Raw text:', finalData.rawText?.substring(0, 200))
         
         // Phân tích lý do thất bại
-        const rawText = ocrData.rawText || ''
+        const rawText = finalData.rawText || ''
         let errorMessage = 'Không thể trích xuất thông tin từ ảnh. '
         let suggestions = []
         
@@ -229,33 +247,81 @@ export default function UploadSection() {
       
       // Chuyển đổi dữ liệu OCR sang format của component
       const mockData: ExtractedData = {
-        fullName: ocrData.fullName || '',
-        dateOfBirth: ocrData.dateOfBirth || '',
-        certificateType: ocrData.certificateType || 'Unknown',
-        testDate: ocrData.examDate || '',
-        issueDate: ocrData.issueDate || '',
-        certificateNumber: ocrData.certificateNumber || '',
+        fullName: finalData.fullName || '',
+        dateOfBirth: finalData.dateOfBirth || '',
+        certificateType: finalData.certificateType || 'Unknown',
+        testDate: finalData.examDate || '',
+        issueDate: finalData.issueDate || '',
+        certificateNumber: finalData.certificateNumber || '',
         scores: {
-          overall: ocrData.scores?.overall?.toString() || '',
-          listening: ocrData.scores?.listening?.toString() || '',
-          reading: ocrData.scores?.reading?.toString() || '',
-          writing: ocrData.scores?.writing?.toString() || '',
-          speaking: ocrData.scores?.speaking?.toString() || ''
+          overall: finalData.scores?.overall?.toString() || '',
+          listening: finalData.scores?.listening?.toString() || '',
+          reading: finalData.scores?.reading?.toString() || '',
+          writing: finalData.scores?.writing?.toString() || '',
+          speaking: finalData.scores?.speaking?.toString() || ''
         },
-        issuingOrganization: ocrData.issuingOrganization || getIssuingOrg(ocrData.certificateType || ''),
-        confidence: ocrData.confidence || 0,
-        extractionMethod: ocrData.extractionMethod || 'tesseract',
-        processingTime: ocrData.processingTime
+        issuingOrganization: finalData.issuingOrganization || getIssuingOrg(finalData.certificateType || ''),
+        confidence: finalData.confidence || 0,
+        extractionMethod: finalData.extractionMethod || 'tesseract',
+        processingTime: finalData.processingTime || 0,
+        imageQuality: finalData.imageQuality,
+        enhancementApplied: finalData.enhancementApplied,
+        rawText: finalData.rawText
       }
       
       console.log('📋 Dữ liệu đã chuyển đổi:', mockData)
       setExtractedData(mockData)
-      toast.success('Trích xuất thông tin thành công!', { id: 'ocr' })
+      
+      // Hiển thị kết quả validation
+      if (validationResult.errors.length > 0) {
+        toast.error(
+          <div className="text-sm">
+            <p className="font-semibold mb-2">⚠️ Phát hiện một số vấn đề:</p>
+            <ul className="text-xs list-disc list-inside space-y-1">
+              {validationResult.errors.slice(0, 3).map((error, index) => (
+                <li key={index}>{error}</li>
+              ))}
+            </ul>
+            {validationResult.suggestions.length > 0 && (
+              <p className="text-xs mt-2 text-blue-600">
+                💡 {validationResult.suggestions.length} đề xuất cải thiện
+              </p>
+            )}
+          </div>,
+          { 
+            id: 'ocr',
+            duration: 6000,
+            style: { maxWidth: '400px' }
+          }
+        )
+      } else {
+        toast.success(
+          <div className="text-sm">
+            <p className="font-semibold">✅ Trích xuất thành công!</p>
+            <p className="text-xs mt-1">
+              Độ tin cậy: {Math.round(validationResult.confidence)}% | 
+              Phương pháp: {finalData.extractionMethod || 'OCR'}
+            </p>
+            {validationResult.suggestions.length > 0 && (
+              <p className="text-xs mt-1 text-blue-600">
+                💡 {validationResult.suggestions.length} đề xuất tối ưu
+              </p>
+            )}
+          </div>,
+          { id: 'ocr', duration: 4000 }
+        )
+      }
       
       // Log raw text để debug
-      if (ocrData.rawText) {
-        console.log('📄 Raw OCR Text:', ocrData.rawText)
+      if (finalData.rawText) {
+        console.log('📄 Raw OCR Text:', finalData.rawText)
       }
+      
+      // Log validation details
+      if (validationResult.suggestions.length > 0) {
+        console.log('💡 AI Suggestions:', validationResult.suggestions)
+      }
+      
     } catch (error) {
       console.error('❌ Lỗi OCR:', error)
       toast.error('Có lỗi xảy ra khi xử lý file', { id: 'ocr' })
@@ -540,6 +606,23 @@ export default function UploadSection() {
           {/* Extracted Data with Editable Form */}
           {extractedData && (
             <div key={formKey} className="mt-12">
+              {/* Image Quality Information */}
+              <ImageQualityInfo
+                imageQuality={extractedData.imageQuality}
+                enhancementApplied={extractedData.enhancementApplied}
+                confidence={extractedData.confidence}
+                className="mb-6"
+              />
+              
+              {/* OCR Debug Information */}
+              <OCRDebugInfo
+                rawText={extractedData.rawText || ''}
+                confidence={extractedData.confidence}
+                extractionMethod={extractedData.extractionMethod}
+                processingTime={extractedData.processingTime}
+                className="mb-6"
+              />
+              
               <EditableExtractionForm
                 data={extractedData}
                 onDataChange={(newData) => setExtractedData(newData)}
