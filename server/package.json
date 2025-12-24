@@ -10,6 +10,7 @@
     "troubleshoot": "node mongodb-troubleshoot.js"
   },
   "dependencies": {
+    "@google/genai": "^1.34.0",
     "@google/generative-ai": "^0.21.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",

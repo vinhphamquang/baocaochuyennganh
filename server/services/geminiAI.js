@@ -1,7 +1,8 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai')
+const { GoogleGenAI } = require('@google/genai')
 
 /**
- * Gemini 2.5 Flash AI Service cho trích xuất chứng chỉ
+ * Gemini 3 Flash Preview AI Service cho trích xuất chứng chỉ
+ * Theo tài liệu chính thức: https://ai.google.dev/gemini-api/docs/image-understanding
  */
 class GeminiCertificateExtractor {
   constructor() {
@@ -13,10 +14,9 @@ class GeminiCertificateExtractor {
       console.warn('⚠️ GEMINI_API_KEY không được cấu hình - sử dụng mock mode')
     } else {
       try {
-        this.genAI = new GoogleGenerativeAI(this.apiKey)
-        // Sử dụng gemini-1.5-pro model có sẵn
-        this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-pro' })
-        console.log('✅ Gemini AI đã được khởi tạo thành công với model gemini-1.5-pro')
+        // Khởi tạo GoogleGenAI client theo tài liệu chính thức
+        this.ai = new GoogleGenAI({ apiKey: this.apiKey })
+        console.log('✅ Gemini AI đã được khởi tạo thành công với gemini-3-flash-preview')
       } catch (error) {
         console.error('❌ Lỗi khởi tạo Gemini AI:', error.message)
         this.isConfigured = false
@@ -26,6 +26,11 @@ class GeminiCertificateExtractor {
 
   /**
    * Trích xuất thông tin chứng chỉ từ ảnh bằng Gemini AI
+   * Theo tài liệu: 
+   * - Passing inline image data
+   * - Structured Outputs với JSON Schema
+   * - Thinking Config (HIGH level cho độ chính xác cao)
+   * - Media Resolution (HIGH cho ảnh chất lượng cao)
    */
   async extractCertificateInfo(imageBuffer, mimeType) {
     if (!this.isConfigured) {
@@ -34,24 +39,48 @@ class GeminiCertificateExtractor {
     }
 
     try {
-      console.log('🤖 Đang phân tích chứng chỉ với Gemini 1.5 Pro...')
+      console.log('🤖 Đang phân tích chứng chỉ với Gemini 3 Flash Preview...')
       
       const prompt = this.buildExtractionPrompt()
       
-      const imagePart = {
-        inlineData: {
-          data: imageBuffer.toString('base64'),
-          mimeType: mimeType
-        }
-      }
-
-      const result = await this.model.generateContent([prompt, imagePart])
-      const response = await result.response
-      const text = response.text()
-
-      console.log('📝 Gemini raw response:', text)
+      // Convert buffer to base64 theo tài liệu chính thức
+      const base64ImageData = imageBuffer.toString('base64')
       
-      return this.parseGeminiResponse(text)
+      // Tạo contents array theo đúng format tài liệu
+      const contents = [
+        {
+          inlineData: {
+            mimeType: mimeType,
+            data: base64ImageData,
+          },
+        },
+        { text: prompt }
+      ]
+
+      // Định nghĩa JSON Schema theo tài liệu chính thức
+      const certificateSchema = this.getCertificateJsonSchema()
+
+      // Gọi generateContent với structured output, thinking và media resolution
+      const response = await this.ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: contents,
+        config: {
+          thinkingConfig: {
+            thinkingLevel: 'HIGH',
+          },
+          mediaResolution: 'MEDIA_RESOLUTION_HIGH',
+          responseMimeType: 'application/json',
+          responseJsonSchema: certificateSchema,
+        },
+      })
+
+      console.log('📝 Gemini raw response:', response.text)
+      
+      // Parse JSON response trực tiếp
+      const parsed = JSON.parse(response.text)
+      
+      // Validate và chuẩn hóa dữ liệu
+      return this.validateAndNormalize(parsed)
     } catch (error) {
       console.error('❌ Gemini AI Error:', error)
       
@@ -61,150 +90,124 @@ class GeminiCertificateExtractor {
   }
 
   /**
-   * Xây dựng prompt chi tiết cho Gemini với advanced techniques
+   * Định nghĩa JSON Schema cho certificate extraction
+   * Theo tài liệu: https://ai.google.dev/gemini-api/docs/structured-output
    */
-  buildExtractionPrompt() {
-    return `
-Bạn là một chuyên gia AI trích xuất thông tin chứng chỉ với độ chính xác cao. Hãy phân tích ảnh chứng chỉ này và trích xuất thông tin theo format JSON chính xác.
-
-QUAN TRỌNG: 
-- Chỉ trả về JSON hợp lệ, không có text giải thích thêm
-- Nếu không chắc chắn về thông tin nào, để trống thay vì đoán
-- Ưu tiên độ chính xác hơn độ đầy đủ
-
-LOẠI CHỨNG CHỈ CẦN NHẬN DẠNG:
-1. IELTS (International English Language Testing System)
-   - Điểm: 0-9 (bước 0.5)
-   - Kỹ năng: Listening, Reading, Writing, Speaking, Overall Band Score
-   - Tổ chức: British Council, IDP Education, Cambridge Assessment
-
-2. TOEFL iBT (Test of English as a Foreign Language)
-   - Điểm: 0-30 mỗi kỹ năng, 0-120 tổng
-   - Kỹ năng: Reading, Listening, Speaking, Writing
-   - Tổ chức: ETS (Educational Testing Service)
-
-3. TOEIC (Test of English for International Communication)
-   - Điểm: 5-495 mỗi kỹ năng, 10-990 tổng
-   - Kỹ năng: Listening, Reading
-   - Tổ chức: ETS
-
-4. VSTEP (Vietnamese Standardized Test of English Proficiency)
-   - Điểm: 0-10 (bước 0.5)
-   - Kỹ năng: Listening, Reading, Writing, Speaking, Overall
-   - Tổ chức: Bộ Giáo dục và Đào tạo Việt Nam
-
-5. HSK (Hanyu Shuiping Kaoshi - Chinese Proficiency Test)
-   - Cấp độ: HSK 1-6
-   - Điểm: 0-300 (HSK 1-3), 0-300 (HSK 4-6)
-
-6. JLPT (Japanese Language Proficiency Test)
-   - Cấp độ: N1, N2, N3, N4, N5
-   - Kết quả: Pass/Fail với điểm chi tiết
-
-THÔNG TIN CẦN TRÍCH XUẤT:
-
-1. certificateType: Loại chứng chỉ chính xác (IELTS/TOEFL/TOEIC/VSTEP/HSK/JLPT/OTHER)
-
-2. fullName: Họ và tên đầy đủ
-   - Ưu tiên tên trên chứng chỉ chính thức
-   - Định dạng: "FIRST MIDDLE LAST" hoặc "LAST, FIRST MIDDLE"
-   - Loại bỏ ký tự đặc biệt, chỉ giữ chữ cái và khoảng trắng
-
-3. dateOfBirth: Ngày sinh
-   - Format: DD/MM/YYYY hoặc MM/DD/YYYY
-   - Kiểm tra tính hợp lý (tuổi 10-100)
-
-4. certificateNumber: Số chứng chỉ/mã số
-   - IELTS: Test Report Form Number (thường 8-15 ký tự)
-   - TOEFL: Registration Number
-   - TOEIC: Registration Number
-   - VSTEP: Certificate Number
-   - Loại bỏ khoảng trắng, ký tự đặc biệt không cần thiết
-
-5. examDate: Ngày thi
-   - Format: DD/MM/YYYY
-   - Phải sau ngày sinh và trước ngày hiện tại
-
-6. issueDate: Ngày cấp chứng chỉ
-   - Format: DD/MM/YYYY
-   - Phải sau hoặc bằng ngày thi
-
-7. issuingOrganization: Tổ chức cấp chứng chỉ
-   - IELTS: "British Council", "IDP Education", "Cambridge Assessment English"
-   - TOEFL/TOEIC: "ETS"
-   - VSTEP: "Bộ Giáo dục và Đào tạo" hoặc tên trường đại học cụ thể
-
-8. scores: Điểm số chi tiết (object)
-   - Chỉ điền điểm số thực sự có trên chứng chỉ
-   - Kiểm tra phạm vi hợp lệ cho từng loại chứng chỉ
-   - IELTS: listening, reading, writing, speaking, overall (0-9, bước 0.5)
-   - TOEFL: reading, listening, speaking, writing, total (0-30 mỗi skill, 0-120 total)
-   - TOEIC: listening, reading, total (5-495 mỗi skill, 10-990 total)
-   - VSTEP: listening, reading, writing, speaking, overall (0-10, bước 0.5)
-
-9. confidence: Độ tin cậy (0-100)
-   - Dựa trên độ rõ ràng của ảnh và tính đầy đủ của thông tin
-   - 90-100: Ảnh rất rõ, thông tin đầy đủ và chắc chắn
-   - 70-89: Ảnh rõ, hầu hết thông tin chắc chắn
-   - 50-69: Ảnh khá rõ, một số thông tin có thể không chắc chắn
-   - 30-49: Ảnh mờ hoặc thông tin khó đọc
-   - 0-29: Ảnh rất mờ hoặc không thể đọc được
-
-10. rawText: Toàn bộ text đã nhận dạng được (để debug)
-
-VALIDATION RULES:
-- Tên: 2-4 từ, mỗi từ 2-20 ký tự, chỉ chữ cái
-- Ngày tháng: Phải hợp lệ và logic (sinh < thi < cấp)
-- Điểm số: Phải trong phạm vi cho phép của từng loại chứng chỉ
-- Số chứng chỉ: Độ dài và format phù hợp với loại chứng chỉ
-
-OUTPUT FORMAT (JSON):
-{
-  "certificateType": "string",
-  "fullName": "string", 
-  "dateOfBirth": "string",
-  "certificateNumber": "string",
-  "examDate": "string",
-  "issueDate": "string", 
-  "issuingOrganization": "string",
-  "scores": {
-    "listening": number,
-    "reading": number,
-    "writing": number,
-    "speaking": number,
-    "overall": number,
-    "total": number
-  },
-  "confidence": number,
-  "extractionMethod": "gemini-ai",
-  "rawText": "string"
-}
-
-SPECIAL INSTRUCTIONS:
-- Nếu không tìm thấy thông tin, để trống string "" hoặc null
-- Không đoán hoặc tạo ra thông tin không có
-- Ưu tiên độ chính xác hơn độ đầy đủ
-- Confidence score phải phản ánh chính xác độ tin cậy
-- Kiểm tra cross-validation giữa các trường (ví dụ: tổng điểm = tổng các kỹ năng)
-`
+  getCertificateJsonSchema() {
+    return {
+      type: 'object',
+      properties: {
+        certificateType: {
+          type: 'string',
+          description: 'Loại chứng chỉ (IELTS/TOEFL/TOEIC/VSTEP/HSK/JLPT/OTHER)',
+          enum: ['IELTS', 'TOEFL', 'TOEIC', 'VSTEP', 'HSK', 'JLPT', 'OTHER']
+        },
+        fullName: {
+          type: 'string',
+          description: 'Họ và tên đầy đủ của người được cấp chứng chỉ'
+        },
+        dateOfBirth: {
+          type: 'string',
+          description: 'Ngày sinh (format: DD/MM/YYYY hoặc MM/DD/YYYY)'
+        },
+        certificateNumber: {
+          type: 'string',
+          description: 'Số chứng chỉ hoặc mã số đăng ký'
+        },
+        examDate: {
+          type: 'string',
+          description: 'Ngày thi (format: DD/MM/YYYY)'
+        },
+        issueDate: {
+          type: 'string',
+          description: 'Ngày cấp chứng chỉ (format: DD/MM/YYYY)'
+        },
+        issuingOrganization: {
+          type: 'string',
+          description: 'Tổ chức cấp chứng chỉ (British Council, IDP, ETS, etc.)'
+        },
+        scores: {
+          type: 'object',
+          description: 'Điểm số chi tiết theo từng kỹ năng',
+          properties: {
+            listening: {
+              type: 'number',
+              description: 'Điểm Listening'
+            },
+            reading: {
+              type: 'number',
+              description: 'Điểm Reading'
+            },
+            writing: {
+              type: 'number',
+              description: 'Điểm Writing'
+            },
+            speaking: {
+              type: 'number',
+              description: 'Điểm Speaking'
+            },
+            overall: {
+              type: 'number',
+              description: 'Điểm tổng hoặc Overall Band Score'
+            },
+            total: {
+              type: 'number',
+              description: 'Tổng điểm (cho TOEIC/TOEFL)'
+            }
+          }
+        },
+        confidence: {
+          type: 'integer',
+          description: 'Độ tin cậy của việc trích xuất (0-100)',
+          minimum: 0,
+          maximum: 100
+        },
+        rawText: {
+          type: 'string',
+          description: 'Toàn bộ text nhận dạng được từ ảnh'
+        }
+      },
+      required: ['certificateType', 'fullName', 'scores', 'confidence']
+    }
   }
 
   /**
-   * Parse response từ Gemini AI
+   * Xây dựng prompt chi tiết cho Gemini với structured output
+   */
+  buildExtractionPrompt() {
+    return `Phân tích ảnh chứng chỉ này và trích xuất thông tin chính xác.
+
+LOẠI CHỨNG CHỈ:
+- IELTS: Điểm 0-9 (Listening, Reading, Writing, Speaking, Overall)
+- TOEFL: Điểm 0-30/skill, 0-120 total
+- TOEIC: Điểm 5-495/skill, 10-990 total
+- VSTEP: Điểm 0-10 (Listening, Reading, Writing, Speaking, Overall)
+- HSK: Cấp độ 1-6
+- JLPT: Cấp độ N1-N5
+
+HƯỚNG DẪN:
+1. Nhận dạng chính xác loại chứng chỉ
+2. Trích xuất họ tên đầy đủ (viết hoa)
+3. Tìm số chứng chỉ/mã đăng ký
+4. Trích xuất tất cả ngày tháng (sinh, thi, cấp)
+5. Xác định tổ chức cấp chứng chỉ
+6. Trích xuất điểm số chi tiết theo từng kỹ năng
+7. Đánh giá độ tin cậy dựa trên độ rõ ảnh
+
+LƯU Ý:
+- Nếu không tìm thấy thông tin, để trống string ""
+- Không đoán hoặc tạo thông tin không có
+- Confidence: 90-100 (rất rõ), 70-89 (rõ), 50-69 (khá rõ), <50 (mờ)
+- Trích xuất toàn bộ text nhận dạng được vào rawText`
+  }
+
+  /**
+   * Parse response từ Gemini AI (với structured output, response đã là JSON hợp lệ)
    */
   parseGeminiResponse(responseText) {
     try {
-      // Làm sạch response text
-      let cleanText = responseText.trim()
-      
-      // Tìm JSON trong response
-      const jsonMatch = cleanText.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        cleanText = jsonMatch[0]
-      }
-
-      // Parse JSON
-      const parsed = JSON.parse(cleanText)
+      // Với structured output, response đã là JSON hợp lệ
+      const parsed = JSON.parse(responseText)
       
       // Validate và chuẩn hóa dữ liệu
       return this.validateAndNormalize(parsed)
@@ -527,18 +530,31 @@ SPECIAL INSTRUCTIONS:
         return {
           status: 'mock',
           message: 'Gemini API key chưa cấu hình - đang chạy mock mode',
-          model: 'gemini-1.5-pro (mock)'
+          model: 'gemini-3-flash-preview (mock)'
         }
       }
 
-      // Test với prompt đơn giản
-      const result = await this.model.generateContent('Hello')
-      const response = await result.response
+      // Test với prompt đơn giản theo tài liệu chính thức
+      const response = await this.ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: [{ text: 'Hello, respond with a simple greeting.' }],
+        config: {
+          thinkingConfig: {
+            thinkingLevel: 'LOW',
+          },
+        },
+      })
       
       return {
         status: 'healthy',
         message: 'Gemini AI service hoạt động bình thường',
-        model: 'gemini-1.5-pro'
+        model: 'gemini-3-flash-preview',
+        features: {
+          thinkingConfig: 'enabled',
+          mediaResolution: 'MEDIA_RESOLUTION_HIGH',
+          structuredOutput: 'enabled'
+        },
+        responseText: response.text
       }
     } catch (error) {
       return {

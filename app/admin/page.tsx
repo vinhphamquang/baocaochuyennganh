@@ -146,7 +146,7 @@ interface ReportData {
 }
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'certificates' | 'templates' | 'reports' | 'comments' | 'logs'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'templates' | 'reports' | 'comments' | 'logs'>('overview')
   const [users, setUsers] = useState<User[]>([])
   const [certificates, setCertificates] = useState<Certificate[]>([])
   const [statistics, setStatistics] = useState<Statistics | null>(null)
@@ -865,7 +865,6 @@ export default function AdminDashboard() {
   const tabs = [
     { id: 'overview', name: 'Tổng quan', icon: ChartBarIcon },
     { id: 'users', name: 'Người dùng', icon: UsersIcon },
-    { id: 'certificates', name: 'Chứng chỉ', icon: DocumentTextIcon },
     { id: 'templates', name: 'Mẫu chứng chỉ', icon: DocumentTextIcon },
     { id: 'reports', name: 'Báo cáo', icon: ChartBarIcon },
     { id: 'comments', name: 'Bình luận', icon: ChatBubbleLeftRightIcon },

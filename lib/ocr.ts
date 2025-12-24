@@ -1,5 +1,5 @@
 import Tesseract from 'tesseract.js';
-import { processLowResolutionImage, ExtractedData as LowResExtractedData } from './ocr-low-resolution-enhancer';
+import { enhancedOCR } from './ocr-enhanced';
 
 export interface OCRProgress {
   status: string;
@@ -452,22 +452,22 @@ export async function processImage(
       console.log('🔧 Sử dụng OCR nâng cao cho ảnh chất lượng thấp/trung bình');
       onProgress?.({ status: 'Chuyển sang OCR nâng cao...', progress: 0.1 });
       
-      // Sử dụng hệ thống OCR nâng cao
-      const enhancedResult = await processLowResolutionImage(imageFile, onProgress);
+      // Sử dụng hệ thống Enhanced OCR
+      const enhancedResult = await enhancedOCR(imageFile);
       
       // Convert sang format cũ để tương thích
       return {
-        fullName: enhancedResult.fullName,
-        dateOfBirth: enhancedResult.dateOfBirth,
-        certificateNumber: enhancedResult.certificateNumber,
-        examDate: enhancedResult.examDate,
-        issueDate: enhancedResult.issueDate,
-        scores: enhancedResult.scores,
-        certificateType: enhancedResult.certificateType,
-        rawText: enhancedResult.rawText,
-        imageQuality: enhancedResult.imageQuality,
-        enhancementApplied: enhancedResult.enhancementApplied,
-        confidence: enhancedResult.confidence
+        fullName: enhancedResult.fullName || '',
+        dateOfBirth: enhancedResult.dateOfBirth || '',
+        certificateNumber: enhancedResult.certificateNumber || '',
+        examDate: enhancedResult.examDate || '',
+        issueDate: enhancedResult.issueDate || '',
+        scores: enhancedResult.scores || {},
+        certificateType: enhancedResult.certificateType || '',
+        rawText: enhancedResult.rawText || '',
+        imageQuality: (enhancedResult as ExtractedData).imageQuality || imageAnalysis.quality,
+        enhancementApplied: (enhancedResult as ExtractedData).enhancementApplied || ['Enhanced OCR'],
+        confidence: enhancedResult.confidence || 50
       };
     } else {
       console.log('📝 Thử OCR tiêu chuẩn cho ảnh chất lượng cao');
@@ -498,26 +498,21 @@ export async function processImage(
         console.log('📝 Raw text from standard OCR:', extractedText);
         onProgress?.({ status: 'Chuyển sang OCR nâng cao để cải thiện kết quả...', progress: 0.7 });
         
-        // Fallback to enhanced OCR
-        const enhancedResult = await processLowResolutionImage(imageFile, (progress) => {
-          onProgress?.({
-            ...progress,
-            progress: 0.7 + progress.progress * 0.3
-          });
-        });
+        // Fallback to Enhanced OCR
+        const enhancedResult = await enhancedOCR(imageFile);
         
         return {
-          fullName: enhancedResult.fullName,
-          dateOfBirth: enhancedResult.dateOfBirth,
-          certificateNumber: enhancedResult.certificateNumber,
-          examDate: enhancedResult.examDate,
-          issueDate: enhancedResult.issueDate,
-          scores: enhancedResult.scores,
-          certificateType: enhancedResult.certificateType,
-          rawText: enhancedResult.rawText,
-          imageQuality: enhancedResult.imageQuality,
-          enhancementApplied: [...(enhancedResult.enhancementApplied || []), 'Fallback from Standard OCR'],
-          confidence: enhancedResult.confidence
+          fullName: enhancedResult.fullName || '',
+          dateOfBirth: enhancedResult.dateOfBirth || '',
+          certificateNumber: enhancedResult.certificateNumber || '',
+          examDate: enhancedResult.examDate || '',
+          issueDate: enhancedResult.issueDate || '',
+          scores: enhancedResult.scores || {},
+          certificateType: enhancedResult.certificateType || '',
+          rawText: enhancedResult.rawText || '',
+          imageQuality: (enhancedResult as ExtractedData).imageQuality || imageAnalysis.quality,
+          enhancementApplied: [...((enhancedResult as ExtractedData).enhancementApplied || []), 'Fallback from Standard OCR'],
+          confidence: enhancedResult.confidence || 50
         };
       }
       
@@ -536,20 +531,20 @@ export async function processImage(
     console.log('🆘 Lỗi xử lý, thử OCR nâng cao như phương án cuối...');
     try {
       onProgress?.({ status: 'Thử phương án OCR nâng cao...', progress: 0.8 });
-      const enhancedResult = await processLowResolutionImage(imageFile, onProgress);
+      const enhancedResult = await enhancedOCR(imageFile);
       
       return {
-        fullName: enhancedResult.fullName,
-        dateOfBirth: enhancedResult.dateOfBirth,
-        certificateNumber: enhancedResult.certificateNumber,
-        examDate: enhancedResult.examDate,
-        issueDate: enhancedResult.issueDate,
-        scores: enhancedResult.scores,
-        certificateType: enhancedResult.certificateType,
-        rawText: enhancedResult.rawText,
-        imageQuality: enhancedResult.imageQuality,
-        enhancementApplied: [...(enhancedResult.enhancementApplied || []), 'Emergency Fallback'],
-        confidence: enhancedResult.confidence
+        fullName: enhancedResult.fullName || '',
+        dateOfBirth: enhancedResult.dateOfBirth || '',
+        certificateNumber: enhancedResult.certificateNumber || '',
+        examDate: enhancedResult.examDate || '',
+        issueDate: enhancedResult.issueDate || '',
+        scores: enhancedResult.scores || {},
+        certificateType: enhancedResult.certificateType || '',
+        rawText: enhancedResult.rawText || '',
+        imageQuality: (enhancedResult as ExtractedData).imageQuality || 'low',
+        enhancementApplied: [...((enhancedResult as ExtractedData).enhancementApplied || []), 'Emergency Fallback'],
+        confidence: enhancedResult.confidence || 30
       };
     } catch (fallbackError) {
       console.error('❌ Enhanced OCR fallback also failed:', fallbackError);
