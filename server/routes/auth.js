@@ -234,7 +234,10 @@ router.post('/forgot-password', async (req, res) => {
     const { email, reason } = req.body
 
     if (!email) {
-      return res.status(400).json({ message: 'Vui lòng nhập email' })
+      return res.status(400).json({ 
+        message: 'Vui lòng nhập email',
+        success: false 
+      })
     }
 
     // Find user by email
@@ -242,7 +245,7 @@ router.post('/forgot-password', async (req, res) => {
     if (!user) {
       // Don't reveal if email exists or not for security
       return res.json({ 
-        message: 'Nếu email tồn tại, yêu cầu đặt lại mật khẩu đã được gửi đến admin',
+        message: 'Nếu email tồn tại trong hệ thống, yêu cầu đặt lại mật khẩu đã được gửi đến admin.',
         success: true
       })
     }
@@ -255,7 +258,7 @@ router.post('/forgot-password', async (req, res) => {
 
     if (existingRequest) {
       return res.json({ 
-        message: 'Bạn đã có yêu cầu đang chờ xử lý. Vui lòng đợi admin phê duyệt.',
+        message: 'Bạn đã có yêu cầu đang chờ xử lý. Vui lòng đợi admin phê duyệt hoặc liên hệ admin để được hỗ trợ.',
         success: true
       })
     }
@@ -272,26 +275,57 @@ router.post('/forgot-password', async (req, res) => {
     await resetRequest.save()
 
     // Log yêu cầu đặt lại mật khẩu
-    await SystemLogger.log({
-      type: 'password_reset_request',
-      message: `Yêu cầu đặt lại mật khẩu từ ${user.fullName}`,
-      userId: user._id,
-      userName: user.fullName,
-      userEmail: user.email,
-      details: {
-        reason: reason || 'Quên mật khẩu',
-        requestId: resetRequest._id
-      },
-      severity: 'medium'
-    })
+    try {
+      await SystemLogger.log({
+        type: 'password_reset_request',
+        message: `Yêu cầu đặt lại mật khẩu từ ${user.fullName}`,
+        userId: user._id,
+        userName: user.fullName,
+        userEmail: user.email,
+        details: {
+          reason: reason || 'Quên mật khẩu',
+          requestId: resetRequest._id
+        },
+        severity: 'medium'
+      })
+    } catch (logError) {
+      console.error('❌ Lỗi ghi log:', logError)
+      // Continue even if logging fails
+    }
+
+    // Send notification email to admin
+    const { sendPasswordResetRequestNotification } = require('../utils/email')
+    try {
+      // Get admin email from environment or use default
+      const adminEmail = process.env.ADMIN_EMAIL || 'admin@certificateextraction.com'
+      
+      const emailResult = await sendPasswordResetRequestNotification(adminEmail, {
+        fullName: user.fullName,
+        email: user.email,
+        reason: reason || 'Quên mật khẩu'
+      })
+      
+      if (emailResult.success) {
+        console.log(`✅ Đã gửi thông báo đến admin: ${adminEmail}`)
+      } else {
+        console.error('❌ Lỗi gửi email thông báo admin:', emailResult.error)
+      }
+    } catch (emailError) {
+      console.error('❌ Lỗi gửi email thông báo admin:', emailError.message)
+      // Continue even if email fails - request is still saved
+    }
 
     res.json({ 
-      message: 'Yêu cầu đặt lại mật khẩu đã được gửi đến admin. Bạn sẽ nhận được thông báo khi được phê duyệt.',
+      message: 'Yêu cầu đặt lại mật khẩu đã được gửi thành công! Admin sẽ xem xét và phê duyệt yêu cầu của bạn. Bạn sẽ nhận được email khi được phê duyệt.',
       success: true
     })
   } catch (error) {
     console.error('Forgot password error:', error)
-    res.status(500).json({ message: 'Lỗi server' })
+    res.status(500).json({ 
+      message: 'Đã xảy ra lỗi khi xử lý yêu cầu. Vui lòng thử lại sau hoặc liên hệ admin.',
+      success: false,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    })
   }
 })
 

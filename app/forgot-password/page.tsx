@@ -24,11 +24,13 @@ export default function ForgotPasswordPage() {
       if (response.ok && data.success) {
         setSent(true)
       } else {
-        alert(data.message || 'Có lỗi xảy ra')
+        // Hiển thị thông báo lỗi chi tiết
+        const errorMessage = data.message || 'Có lỗi xảy ra khi gửi yêu cầu'
+        alert(`❌ ${errorMessage}`)
       }
     } catch (error) {
       console.error('Error:', error)
-      alert('Lỗi kết nối')
+      alert('❌ Không thể kết nối đến server. Vui lòng kiểm tra:\n\n1. Server đã chạy chưa? (npm run dev trong thư mục server)\n2. Kết nối mạng có ổn định không?\n3. URL server có đúng không? (http://localhost:5000)')
     } finally {
       setLoading(false)
     }

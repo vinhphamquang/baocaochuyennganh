@@ -29,6 +29,7 @@ interface PasswordResetRequest {
 export default function PasswordResetManagementPage() {
   const router = useRouter()
   const [requests, setRequests] = useState<PasswordResetRequest[]>([])
+  const [allRequests, setAllRequests] = useState<PasswordResetRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending')
   const [selectedRequest, setSelectedRequest] = useState<PasswordResetRequest | null>(null)
@@ -51,6 +52,17 @@ export default function PasswordResetManagementPage() {
         return
       }
 
+      // Fetch all requests for counting
+      const allResponse = await fetch(`http://localhost:5000/api/admin/password-reset-requests`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+
+      if (allResponse.ok) {
+        const allData = await allResponse.json()
+        setAllRequests(allData.requests || [])
+      }
+
+      // Fetch filtered requests
       const queryParam = filter !== 'all' ? `?status=${filter}` : ''
       const response = await fetch(`http://localhost:5000/api/admin/password-reset-requests${queryParam}`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -68,6 +80,12 @@ export default function PasswordResetManagementPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Count requests by status
+  const getCountByStatus = (status: 'all' | 'pending' | 'approved' | 'rejected') => {
+    if (status === 'all') return allRequests.length
+    return allRequests.filter(req => req.status === status).length
   }
 
   const handleApprove = async (request: PasswordResetRequest) => {
@@ -218,7 +236,7 @@ export default function PasswordResetManagementPage() {
               {status === 'approved' && '✅ Đã phê duyệt'}
               {status === 'rejected' && '❌ Đã từ chối'}
               <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-white bg-opacity-20">
-                {requests.length}
+                {getCountByStatus(status)}
               </span>
             </button>
           ))}
@@ -352,13 +370,16 @@ export default function PasswordResetManagementPage() {
                       ✅ Yêu cầu đã được phê duyệt thành công!
                     </p>
                     <p className="text-xs text-green-700">
-                      Link đặt lại mật khẩu có hiệu lực trong 24 giờ
+                      📧 Email với link đặt lại mật khẩu đã được gửi đến người dùng
+                    </p>
+                    <p className="text-xs text-green-700">
+                      ⏰ Link có hiệu lực trong 24 giờ
                     </p>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Link đặt lại mật khẩu:
+                      Link đặt lại mật khẩu (backup):
                     </label>
                     <div className="flex gap-2">
                       <input
@@ -376,9 +397,9 @@ export default function PasswordResetManagementPage() {
                     </div>
                   </div>
 
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                    <p className="text-xs text-yellow-800">
-                      💡 Gửi link này cho người dùng qua email hoặc phương thức liên lạc khác
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-xs text-blue-800">
+                      💡 Người dùng đã nhận email tự động. Chỉ cần gửi link này nếu họ không nhận được email.
                     </p>
                   </div>
                 </div>

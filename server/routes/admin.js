@@ -263,14 +263,20 @@ router.post('/password-reset-requests/:id/approve', adminAuth, async (req, res) 
     const { reviewNote } = req.body
     const requestId = req.params.id
 
+    console.log('📝 Approve request:', { requestId, reviewNote })
+
     const request = await PasswordResetRequest.findById(requestId)
       .populate('userId', 'fullName email')
 
     if (!request) {
+      console.log('❌ Request not found:', requestId)
       return res.status(404).json({ message: 'Không tìm thấy yêu cầu' })
     }
 
+    console.log('✅ Request found:', request)
+
     if (request.status !== 'pending') {
+      console.log('❌ Request already processed:', request.status)
       return res.status(400).json({ message: 'Yêu cầu đã được xử lý trước đó' })
     }
 
@@ -281,6 +287,8 @@ router.post('/password-reset-requests/:id/approve', adminAuth, async (req, res) 
       { expiresIn: '24h' }
     )
 
+    console.log('🔑 Token generated')
+
     // Update request
     request.status = 'approved'
     request.reviewedAt = new Date()
@@ -290,36 +298,61 @@ router.post('/password-reset-requests/:id/approve', adminAuth, async (req, res) 
     request.tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
 
     await request.save()
+    console.log('💾 Request saved')
 
     // Log approval
-    await SystemLogger.log({
-      type: 'password_reset_approved',
-      message: `Admin phê duyệt yêu cầu đặt lại mật khẩu cho ${request.fullName}`,
-      adminId: req.userId,
-      adminName: req.user?.fullName || 'Admin',
-      targetUserId: request.userId._id,
-      targetUserName: request.fullName,
-      targetUserEmail: request.email,
-      details: {
-        requestId: request._id,
-        reviewNote: reviewNote || 'Đã phê duyệt',
-        tokenExpiresAt: request.tokenExpiresAt
-      },
-      severity: 'medium'
-    })
+    try {
+      await SystemLogger.log({
+        type: 'password_reset_approved',
+        message: `Admin phê duyệt yêu cầu đặt lại mật khẩu cho ${request.fullName}`,
+        adminId: req.userId,
+        adminName: req.user?.fullName || 'Admin',
+        targetUserId: request.userId._id,
+        targetUserName: request.fullName,
+        targetUserEmail: request.email,
+        details: {
+          requestId: request._id,
+          reviewNote: reviewNote || 'Đã phê duyệt',
+          tokenExpiresAt: request.tokenExpiresAt
+        },
+        severity: 'medium'
+      })
+      console.log('📋 Log saved')
+    } catch (logError) {
+      console.error('❌ Log error:', logError)
+      // Continue even if logging fails
+    }
 
     // Generate reset link
     const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`
+    console.log('🔗 Reset link:', resetLink)
+
+    // Send email to user with reset link
+    const { sendResetPasswordEmail } = require('../utils/email')
+    try {
+      const emailResult = await sendResetPasswordEmail(request.email, resetLink, request.fullName)
+      if (emailResult.success) {
+        console.log(`✅ Đã gửi email đặt lại mật khẩu đến ${request.email}`)
+      } else {
+        console.error('❌ Lỗi gửi email:', emailResult.error)
+      }
+    } catch (emailError) {
+      console.error('❌ Lỗi gửi email:', emailError.message)
+      // Continue even if email fails
+    }
 
     res.json({ 
       success: true,
-      message: 'Đã phê duyệt yêu cầu đặt lại mật khẩu',
+      message: 'Đã phê duyệt yêu cầu và gửi email đến người dùng',
       request,
       resetLink
     })
   } catch (error) {
-    console.error('Approve password reset error:', error)
-    res.status(500).json({ message: 'Lỗi khi phê duyệt yêu cầu' })
+    console.error('❌ Approve password reset error:', error)
+    res.status(500).json({ 
+      message: 'Lỗi khi phê duyệt yêu cầu',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    })
   }
 })
 

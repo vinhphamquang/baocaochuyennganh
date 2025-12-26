@@ -257,35 +257,39 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       {/* Header */}
-      <div className="bg-white shadow">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="bg-gradient-to-r from-slate-900 via-blue-900 to-purple-900 shadow-2xl relative overflow-hidden">
+        <div className="absolute inset-0 -z-10">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" style={{ animationDelay: '1s' }}></div>
+        </div>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative">
           <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-              <p className="text-sm text-gray-600">Quản lý chứng chỉ đã xử lý</p>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">Dashboard</h1>
+              <p className="text-sm text-gray-300">Quản lý chứng chỉ đã xử lý</p>
             </div>
             <div className="flex items-center space-x-4">
               {user && (
-                <div className="flex items-center space-x-3 px-4 py-2 bg-gray-50 rounded-lg">
-                  <UserCircleIcon className="h-8 w-8 text-gray-600" />
+                <div className="flex items-center space-x-3 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                  <UserCircleIcon className="h-8 w-8 text-cyan-400" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{user.fullName}</p>
-                    <p className="text-xs text-gray-500">{user.email}</p>
+                    <p className="text-sm font-medium text-white">{user.fullName}</p>
+                    <p className="text-xs text-gray-300">{user.email}</p>
                   </div>
                 </div>
               )}
               <button
                 onClick={() => router.push('/')}
-                className="flex items-center space-x-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                className="flex items-center space-x-2 px-4 py-2 text-sm text-white bg-white/10 backdrop-blur-sm hover:bg-white/20 rounded-xl transition-all border border-white/20 transform hover:scale-105"
               >
                 <HomeIcon className="h-5 w-5" />
                 <span>Trang chủ</span>
               </button>
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                className="flex items-center space-x-2 px-4 py-2 text-sm text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-xl transition-all shadow-lg hover:shadow-red-500/25 transform hover:scale-105"
               >
                 <ArrowRightOnRectangleIcon className="h-5 w-5" />
                 <span>Đăng xuất</span>
@@ -298,15 +302,16 @@ export default function Dashboard() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
         {/* User Info Card */}
         {user && (
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 mb-8 text-white">
-            <div className="flex items-center justify-between">
+          <div className="bg-gradient-to-br from-cyan-500 via-blue-600 to-purple-600 rounded-2xl shadow-2xl p-6 mb-8 text-white border border-cyan-400/20 relative overflow-hidden">
+            <div className="absolute inset-0 bg-white/5 backdrop-blur-sm"></div>
+            <div className="flex items-center justify-between relative z-10">
               <div className="flex items-center space-x-4">
-                <div className="bg-white/20 rounded-full p-3">
+                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-3 shadow-xl">
                   <UserCircleIcon className="h-12 w-12" />
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold">{user.fullName}</h2>
-                  <div className="flex items-center space-x-4 mt-2 text-blue-100">
+                  <div className="flex items-center space-x-4 mt-2 text-cyan-100">
                     <div className="flex items-center space-x-1">
                       <EnvelopeIcon className="h-4 w-4" />
                       <span className="text-sm">{user.email}</span>
@@ -321,30 +326,30 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="text-right space-y-2">
-                <div className="bg-white/20 rounded-lg px-4 py-2">
-                  <p className="text-sm text-blue-100">Vai trò</p>
+                <div className="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg">
+                  <p className="text-sm text-cyan-100">Vai trò</p>
                   <p className="text-xl font-bold">
                     {user.role === 'admin' ? '👑 Admin' : '👤 User'}
                   </p>
                 </div>
                 <button
                   onClick={openEditModal}
-                  className="w-full text-sm bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
+                  className="w-full text-sm bg-white text-blue-600 px-4 py-2 rounded-xl hover:bg-cyan-50 transition-all font-medium shadow-lg transform hover:scale-105"
                 >
                   ✏️ Chỉnh sửa hồ sơ
                 </button>
                 <button
                   onClick={() => setChangePasswordModalOpen(true)}
-                  className="w-full text-sm bg-white/20 text-white px-4 py-2 rounded-lg hover:bg-white/30 transition-colors"
+                  className="w-full text-sm bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-xl hover:bg-white/30 transition-all font-medium transform hover:scale-105"
                 >
                   🔒 Đổi mật khẩu
                 </button>
                 {user.role === 'admin' && (
                   <button
                     onClick={() => router.push('/admin')}
-                    className="w-full text-sm bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
+                    className="w-full text-sm bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 rounded-xl hover:from-amber-600 hover:to-orange-600 transition-all font-medium shadow-lg transform hover:scale-105"
                   >
-                    Vào Admin Panel
+                    👑 Admin Panel
                   </button>
                 )}
               </div>
@@ -375,10 +380,12 @@ export default function Dashboard() {
         </div>
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-200 transform hover:scale-105 transition-all duration-300">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <DocumentTextIcon className="h-8 w-8 text-primary-600" />
+                <div className="bg-gradient-to-br from-cyan-500 to-blue-500 rounded-2xl p-3 shadow-lg">
+                  <DocumentTextIcon className="h-8 w-8 text-white" />
+                </div>
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Tổng số đã xử lý</p>
@@ -387,10 +394,12 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-200 transform hover:scale-105 transition-all duration-300">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <ChartBarIcon className="h-8 w-8 text-green-600" />
+                <div className="bg-gradient-to-br from-emerald-500 to-green-500 rounded-2xl p-3 shadow-lg">
+                  <ChartBarIcon className="h-8 w-8 text-white" />
+                </div>
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Tỷ lệ thành công</p>
@@ -399,10 +408,12 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-200 transform hover:scale-105 transition-all duration-300">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <ClockIcon className="h-8 w-8 text-blue-600" />
+                <div className="bg-gradient-to-br from-purple-500 to-indigo-500 rounded-2xl p-3 shadow-lg">
+                  <ClockIcon className="h-8 w-8 text-white" />
+                </div>
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Tháng này</p>
@@ -413,9 +424,9 @@ export default function Dashboard() {
         </div>
 
         {/* Certificates Table */}
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-            <h2 className="text-lg font-medium text-gray-900">Lịch sử xử lý của bạn</h2>
+        <div className="bg-white shadow-2xl rounded-2xl border border-gray-200">
+          <div className="px-6 py-4 bg-gradient-to-r from-slate-50 via-blue-50 to-purple-50 border-b border-gray-200 flex justify-between items-center rounded-t-2xl">
+            <h2 className="text-lg font-semibold bg-gradient-to-r from-slate-900 via-blue-900 to-purple-900 bg-clip-text text-transparent">Lịch sử xử lý của bạn</h2>
             {user && (
               <span className="text-sm text-gray-500">
                 Tài khoản: {user.email}

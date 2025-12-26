@@ -4,7 +4,7 @@ const nodemailer = require('nodemailer')
 const createTransporter = () => {
   // Option 1: Sử dụng Gmail
   if (process.env.EMAIL_SERVICE === 'gmail') {
-    return nodemailer.createTransporter({
+    return nodemailer.createTransport({
       service: 'gmail',
       auth: {
         user: process.env.EMAIL_USER,
@@ -15,7 +15,7 @@ const createTransporter = () => {
   
   // Option 2: Sử dụng SendGrid
   if (process.env.EMAIL_SERVICE === 'sendgrid') {
-    return nodemailer.createTransporter({
+    return nodemailer.createTransport({
       host: 'smtp.sendgrid.net',
       port: 587,
       auth: {
@@ -26,7 +26,7 @@ const createTransporter = () => {
   }
   
   // Option 3: Sử dụng SMTP tùy chỉnh
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: process.env.SMTP_PORT || 587,
     secure: process.env.SMTP_SECURE === 'true',
@@ -163,7 +163,76 @@ const sendWelcomeEmail = async (email, userName) => {
   }
 }
 
+// Gửi email thông báo cho admin về yêu cầu reset password
+const sendPasswordResetRequestNotification = async (adminEmail, userInfo) => {
+  try {
+    const transporter = createTransporter()
+    
+    const mailOptions = {
+      from: `"${process.env.EMAIL_FROM_NAME || 'CertExtract'}" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+      to: adminEmail,
+      subject: '🔐 Yêu cầu đặt lại mật khẩu mới - CertExtract',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+            .container { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 10px; padding: 30px; color: white; }
+            .content { background: white; border-radius: 8px; padding: 30px; margin-top: 20px; color: #333; }
+            .button { display: inline-block; padding: 15px 30px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0; }
+            .info-box { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }
+            .user-info { background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1 style="margin: 0; font-size: 28px;">🔐 Yêu cầu đặt lại mật khẩu</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">Thông báo cho Admin</p>
+          </div>
+          
+          <div class="content">
+            <p>Xin chào <strong>Admin</strong>,</p>
+            
+            <p>Có một yêu cầu đặt lại mật khẩu mới từ người dùng:</p>
+            
+            <div class="user-info">
+              <p><strong>👤 Họ tên:</strong> ${userInfo.fullName}</p>
+              <p><strong>📧 Email:</strong> ${userInfo.email}</p>
+              <p><strong>📝 Lý do:</strong> ${userInfo.reason || 'Quên mật khẩu'}</p>
+              <p><strong>⏰ Thời gian:</strong> ${new Date().toLocaleString('vi-VN')}</p>
+            </div>
+            
+            <div class="info-box">
+              <strong>⚠️ Hành động cần thiết:</strong>
+              <p style="margin: 10px 0 0 0;">Vui lòng truy cập trang quản trị để xem xét và phê duyệt yêu cầu này.</p>
+            </div>
+            
+            <div style="text-align: center;">
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/password-reset" class="button">
+                Xem yêu cầu
+              </a>
+            </div>
+            
+            <p style="margin-top: 30px;">Trân trọng,<br><strong>Hệ thống CertExtract</strong></p>
+          </div>
+        </body>
+        </html>
+      `
+    }
+    
+    const info = await transporter.sendMail(mailOptions)
+    console.log('Admin notification email sent:', info.messageId)
+    return { success: true, messageId: info.messageId }
+  } catch (error) {
+    console.error('Error sending admin notification:', error)
+    return { success: false, error: error.message }
+  }
+}
+
 module.exports = {
   sendResetPasswordEmail,
-  sendWelcomeEmail
+  sendWelcomeEmail,
+  sendPasswordResetRequestNotification
 }

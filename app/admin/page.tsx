@@ -168,6 +168,7 @@ export default function AdminDashboard() {
   const [loadingTemplates, setLoadingTemplates] = useState(false)
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const [loadingReports, setLoadingReports] = useState(false)
+  const [pendingPasswordResets, setPendingPasswordResets] = useState(0)
   
   // Template interaction states
   const [showTemplateModal, setShowTemplateModal] = useState(false)
@@ -294,6 +295,16 @@ export default function AdminDashboard() {
       if (logsRes.ok) {
         const logsData = await logsRes.json()
         setLogs(logsData.logs)
+      }
+
+      // Fetch pending password reset requests
+      const passwordResetRes = await fetch('http://localhost:5000/api/admin/password-reset-requests?status=pending', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      
+      if (passwordResetRes.ok) {
+        const passwordResetData = await passwordResetRes.json()
+        setPendingPasswordResets(passwordResetData.total || 0)
       }
 
     } catch (error) {
@@ -883,30 +894,34 @@ export default function AdminDashboard() {
   const user = JSON.parse(localStorage.getItem('user') || '{}')
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       {/* Header */}
-      <div className="bg-white shadow-lg border-b border-gray-200">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="bg-gradient-to-r from-slate-900 via-blue-900 to-purple-900 shadow-2xl border-b border-gray-800 relative overflow-hidden">
+        <div className="absolute inset-0 -z-10">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" style={{ animationDelay: '1s' }}></div>
+        </div>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center space-x-4">
-              <div className="h-12 w-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+              <div className="h-12 w-12 bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-500 rounded-xl flex items-center justify-center shadow-2xl transform hover:scale-110 transition-transform">
                 <CogIcon className="h-7 w-7 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p className="text-sm text-gray-600">Xin chào, {user.fullName || 'Admin'}</p>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">Admin Dashboard</h1>
+                <p className="text-sm text-gray-300">Xin chào, {user.fullName || 'Admin'}</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
               <a 
                 href="/" 
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                className="px-4 py-2 text-white bg-white/10 backdrop-blur-sm rounded-lg hover:bg-white/20 transition-all font-medium border border-white/20"
               >
                 🏠 Trang chủ
               </a>
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 text-white bg-gradient-to-r from-red-600 to-red-700 rounded-lg hover:from-red-700 hover:to-red-800 transition-all font-medium shadow-md hover:shadow-lg"
+                className="px-4 py-2 text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg hover:from-red-600 hover:to-red-700 transition-all font-medium shadow-lg hover:shadow-red-500/25 transform hover:scale-105"
               >
                 🚪 Đăng xuất
               </button>
@@ -917,16 +932,16 @@ export default function AdminDashboard() {
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
         {/* Navigation Tabs */}
-        <div className="bg-white rounded-xl shadow-md p-2 mb-8">
+        <div className="bg-white rounded-2xl shadow-xl p-2 mb-8 border border-gray-200">
           <nav className="flex space-x-2">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center px-6 py-3 rounded-lg font-medium text-sm transition-all ${
+                className={`flex items-center px-6 py-3 rounded-xl font-medium text-sm transition-all transform ${
                   activeTab === tab.id
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 text-white shadow-lg scale-105'
+                    : 'text-gray-600 hover:bg-gray-100 hover:scale-105'
                 }`}
               >
                 <tab.icon className="h-5 w-5 mr-2" />
@@ -941,49 +956,49 @@ export default function AdminDashboard() {
           <div>
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
+              <div className="bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl shadow-2xl p-6 text-white transform hover:scale-105 transition-all duration-300 border border-cyan-400/20">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-blue-100 text-sm font-medium mb-1">Tổng người dùng</p>
+                    <p className="text-cyan-100 text-sm font-medium mb-1">Tổng người dùng</p>
                     <p className="text-4xl font-bold">{statistics?.totalUsers || 0}</p>
                   </div>
-                  <div className="bg-white bg-opacity-20 rounded-full p-4">
+                  <div className="bg-white bg-opacity-20 rounded-2xl p-4 backdrop-blur-sm">
                     <UsersIcon className="h-8 w-8" />
                   </div>
                 </div>
               </div>
 
-              <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
+              <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl shadow-2xl p-6 text-white transform hover:scale-105 transition-all duration-300 border border-emerald-400/20">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-green-100 text-sm font-medium mb-1">Người dùng hoạt động</p>
+                    <p className="text-emerald-100 text-sm font-medium mb-1">Người dùng hoạt động</p>
                     <p className="text-4xl font-bold">{statistics?.activeUsers || 0}</p>
                   </div>
-                  <div className="bg-white bg-opacity-20 rounded-full p-4">
+                  <div className="bg-white bg-opacity-20 rounded-2xl p-4 backdrop-blur-sm">
                     <UsersIcon className="h-8 w-8" />
                   </div>
                 </div>
               </div>
 
-              <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
+              <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl shadow-2xl p-6 text-white transform hover:scale-105 transition-all duration-300 border border-purple-400/20">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-purple-100 text-sm font-medium mb-1">Tổng chứng chỉ</p>
                     <p className="text-4xl font-bold">{statistics?.totalCertificates || 0}</p>
                   </div>
-                  <div className="bg-white bg-opacity-20 rounded-full p-4">
+                  <div className="bg-white bg-opacity-20 rounded-2xl p-4 backdrop-blur-sm">
                     <DocumentTextIcon className="h-8 w-8" />
                   </div>
                 </div>
               </div>
 
-              <div className="bg-gradient-to-br from-pink-500 to-pink-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform">
+              <div className="bg-gradient-to-br from-pink-500 to-rose-600 rounded-2xl shadow-2xl p-6 text-white transform hover:scale-105 transition-all duration-300 border border-pink-400/20">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-pink-100 text-sm font-medium mb-1">Tổng bình luận</p>
                     <p className="text-4xl font-bold">{comments?.length || 0}</p>
                   </div>
-                  <div className="bg-white bg-opacity-20 rounded-full p-4">
+                  <div className="bg-white bg-opacity-20 rounded-2xl p-4 backdrop-blur-sm">
                     <ChatBubbleLeftRightIcon className="h-8 w-8" />
                   </div>
                 </div>
@@ -994,11 +1009,11 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <a
                 href="/admin/reports"
-                className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow border-l-4 border-blue-500"
+                className="bg-white rounded-2xl shadow-xl p-6 hover:shadow-2xl transition-all duration-300 border-l-4 border-blue-500 transform hover:scale-105 hover:-translate-y-1"
               >
                 <div className="flex items-center">
-                  <div className="bg-blue-100 rounded-full p-3 mr-4">
-                    <ChartBarIcon className="h-6 w-6 text-blue-600" />
+                  <div className="bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl p-3 mr-4 shadow-lg">
+                    <ChartBarIcon className="h-6 w-6 text-white" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900">Báo cáo chi tiết</h3>
@@ -1009,11 +1024,11 @@ export default function AdminDashboard() {
 
               <a
                 href="/admin/password-reset"
-                className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow border-l-4 border-orange-500"
+                className="bg-white rounded-2xl shadow-xl p-6 hover:shadow-2xl transition-all duration-300 border-l-4 border-orange-500 transform hover:scale-105 hover:-translate-y-1 relative"
               >
                 <div className="flex items-center">
-                  <div className="bg-orange-100 rounded-full p-3 mr-4">
-                    <svg className="h-6 w-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl p-3 mr-4 shadow-lg">
+                    <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                     </svg>
                   </div>
@@ -1022,15 +1037,22 @@ export default function AdminDashboard() {
                     <p className="text-sm text-gray-500">Quản lý yêu cầu người dùng</p>
                   </div>
                 </div>
+                {pendingPasswordResets > 0 && (
+                  <div className="absolute top-2 right-2">
+                    <span className="inline-flex items-center justify-center px-3 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full animate-pulse shadow-lg">
+                      {pendingPasswordResets}
+                    </span>
+                  </div>
+                )}
               </a>
 
               <button
                 onClick={fetchData}
-                className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow border-l-4 border-green-500 text-left"
+                className="bg-white rounded-2xl shadow-xl p-6 hover:shadow-2xl transition-all duration-300 border-l-4 border-green-500 text-left transform hover:scale-105 hover:-translate-y-1"
               >
                 <div className="flex items-center">
-                  <div className="bg-green-100 rounded-full p-3 mr-4">
-                    <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl p-3 mr-4 shadow-lg">
+                    <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                   </div>
@@ -1043,14 +1065,14 @@ export default function AdminDashboard() {
             </div>
 
             {/* Recent Activity */}
-            <div className="bg-white shadow-lg rounded-xl overflow-hidden">
-              <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">📊 Hoạt động gần đây</h2>
+            <div className="bg-white shadow-2xl rounded-2xl overflow-hidden border border-gray-200">
+              <div className="px-6 py-4 bg-gradient-to-r from-slate-50 via-blue-50 to-purple-50 border-b border-gray-200">
+                <h2 className="text-lg font-semibold bg-gradient-to-r from-slate-900 via-blue-900 to-purple-900 bg-clip-text text-transparent">📊 Hoạt động gần đây</h2>
               </div>
               <div className="p-6">
                 <div className="space-y-4">
                   {logs.slice(0, 5).map((log) => (
-                    <div key={log.id} className="flex items-start space-x-3">
+                    <div key={log.id} className="flex items-start space-x-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
                       <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${
                         log.type === 'error' ? 'bg-red-500' :
                         log.type === 'warning' ? 'bg-yellow-500' : 'bg-green-500'

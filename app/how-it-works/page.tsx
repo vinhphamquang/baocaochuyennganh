@@ -222,23 +222,6 @@ export default function HowItWorksPage() {
                       </div>
                     </div>
                   </div>
-                  
-                  <div className="flex-1">
-                    <div className="bg-gray-100 rounded-2xl p-8 h-80 flex items-center justify-center">
-                      <div className="text-center text-gray-500">
-                        <div className="text-6xl mb-4">
-                          {index === 0 && '📄'}
-                          {index === 1 && '🤖'}
-                          {index === 2 && '✅'}
-                        </div>
-                        <p className="text-lg font-semibold">
-                          {index === 0 && 'Minh họa quá trình upload'}
-                          {index === 1 && 'AI processing visualization'}
-                          {index === 2 && 'Kết quả và export options'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               ))}
             </div>
