@@ -1,6 +1,7 @@
 const express = require('express')
 const multer = require('multer')
 const Certificate = require('../models/Certificate')
+const CertificateTemplate = require('../models/CertificateTemplate')
 const User = require('../models/User')
 const { auth } = require('../middleware/auth')
 const SystemLogger = require('../utils/logger')
@@ -73,6 +74,24 @@ router.post('/upload', auth, upload.single('certificate'), async (req, res) => {
     const totalFields = 7
     const confidence = Math.round((filledFields / totalFields) * 100)
 
+    // Tìm template phù hợp với loại chứng chỉ
+    let templateId = null
+    try {
+      const template = await CertificateTemplate.findOne({
+        certificateType: certificateType,
+        isActive: true
+      }).sort({ 'usage.averageConfidence': -1 })
+      
+      if (template) {
+        templateId = template._id
+        // Cập nhật usage statistics cho template
+        await template.updateUsage(true, confidence)
+        console.log('✅ Template usage updated:', template.name)
+      }
+    } catch (err) {
+      console.error('Error updating template usage:', err)
+    }
+
     // Tạo bản ghi chứng chỉ
     const certificate = new Certificate({
       userId: req.userId,
@@ -80,6 +99,7 @@ router.post('/upload', auth, upload.single('certificate'), async (req, res) => {
       fileSize: req.file.size,
       fileType: req.file.mimetype,
       certificateType: certificateType,
+      templateId: templateId,
       extractedData: normalizedData,
       processingStatus: 'completed',
       ocrConfidence: confidence,

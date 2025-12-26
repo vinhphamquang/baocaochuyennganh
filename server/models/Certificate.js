@@ -23,6 +23,10 @@ const certificateSchema = new mongoose.Schema({
     enum: ['IELTS', 'TOEFL', 'TOEIC', 'VSTEP', 'HSK', 'JLPT', 'OTHER', 'Unknown'],
     default: 'OTHER'
   },
+  templateId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'CertificateTemplate'
+  },
   processingStatus: {
     type: String,
     enum: ['pending', 'processing', 'completed', 'failed'],

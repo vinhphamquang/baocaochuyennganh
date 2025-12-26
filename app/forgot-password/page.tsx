@@ -16,12 +16,12 @@ export default function ForgotPasswordPage() {
       const response = await fetch('http://localhost:5000/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ email, reason: 'Quên mật khẩu' })
       })
 
       const data = await response.json()
 
-      if (response.ok) {
+      if (response.ok && data.success) {
         setSent(true)
       } else {
         alert(data.message || 'Có lỗi xảy ra')
@@ -52,7 +52,7 @@ export default function ForgotPasswordPage() {
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900">Quên mật khẩu?</h2>
                 <p className="text-gray-600 mt-2">
-                  Nhập email đã đăng ký, chúng tôi sẽ gửi link đặt lại mật khẩu
+                  Nhập email đã đăng ký. Yêu cầu sẽ được gửi đến admin để phê duyệt.
                 </p>
               </div>
 
@@ -76,7 +76,7 @@ export default function ForgotPasswordPage() {
                   disabled={loading}
                   className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all"
                 >
-                  {loading ? 'Đang gửi...' : 'Gửi link đặt lại mật khẩu'}
+                  {loading ? 'Đang gửi...' : 'Gửi yêu cầu đến admin'}
                 </button>
               </form>
 
@@ -93,12 +93,22 @@ export default function ForgotPasswordPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Email đã được gửi!</h2>
-              <p className="text-gray-600 mb-6">
-                Chúng tôi đã gửi link đặt lại mật khẩu đến <strong>{email}</strong>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Yêu cầu đã được gửi!</h2>
+              <p className="text-gray-600 mb-4">
+                Yêu cầu đặt lại mật khẩu cho <strong>{email}</strong> đã được gửi đến admin.
               </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <p className="text-sm text-blue-800">
+                  <strong>📋 Quy trình:</strong>
+                </p>
+                <ol className="text-sm text-blue-700 text-left mt-2 space-y-1 ml-4">
+                  <li>1. Admin sẽ xem xét yêu cầu của bạn</li>
+                  <li>2. Nếu được phê duyệt, bạn sẽ nhận được link đặt lại mật khẩu</li>
+                  <li>3. Link có hiệu lực trong 24 giờ</li>
+                </ol>
+              </div>
               <p className="text-sm text-gray-500 mb-6">
-                Vui lòng kiểm tra hộp thư đến (và cả thư rác) của bạn
+                Vui lòng kiểm tra email hoặc liên hệ admin nếu cần hỗ trợ
               </p>
               <a
                 href="/"

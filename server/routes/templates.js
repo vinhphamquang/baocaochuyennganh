@@ -40,10 +40,41 @@ router.get('/', adminAuth, async (req, res) => {
       .populate('updatedBy', 'fullName email')
       .sort({ updatedAt: -1 });
     
+    // Tính thống kê tổng quan
+    const totalTemplates = await CertificateTemplate.countDocuments(query);
+    const activeTemplates = await CertificateTemplate.countDocuments({ ...query, isActive: true });
+    
+    const usageStats = await CertificateTemplate.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: null,
+          totalProcessed: { $sum: '$usage.totalProcessed' },
+          totalSuccessful: { $sum: '$usage.successfulExtractions' },
+          avgConfidence: { $avg: '$usage.averageConfidence' }
+        }
+      }
+    ]);
+    
+    const stats = usageStats[0] || {
+      totalProcessed: 0,
+      totalSuccessful: 0,
+      avgConfidence: 0
+    };
+    
     res.json({
       success: true,
       data: templates,
-      total: templates.length
+      total: templates.length,
+      stats: {
+        totalTemplates,
+        activeTemplates,
+        totalProcessed: stats.totalProcessed,
+        averageConfidence: Math.round(stats.avgConfidence || 0),
+        successRate: stats.totalProcessed > 0 
+          ? Math.round((stats.totalSuccessful / stats.totalProcessed) * 100)
+          : 0
+      }
     });
   } catch (error) {
     console.error('Get templates error:', error);
@@ -285,6 +316,29 @@ router.get('/stats/overview', adminAuth, async (req, res) => {
     const totalTemplates = await CertificateTemplate.countDocuments();
     const activeTemplates = await CertificateTemplate.countDocuments({ isActive: true });
     
+    // Tính tổng số chứng chỉ đã xử lý và độ chính xác trung bình
+    const usageStats = await CertificateTemplate.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalProcessed: { $sum: '$usage.totalProcessed' },
+          totalSuccessful: { $sum: '$usage.successfulExtractions' },
+          avgConfidence: { $avg: '$usage.averageConfidence' }
+        }
+      }
+    ]);
+    
+    const stats = usageStats[0] || {
+      totalProcessed: 0,
+      totalSuccessful: 0,
+      avgConfidence: 0
+    };
+    
+    // Tính tỷ lệ thành công
+    const successRate = stats.totalProcessed > 0 
+      ? Math.round((stats.totalSuccessful / stats.totalProcessed) * 100)
+      : 0;
+    
     // Thống kê theo loại chứng chỉ
     const templatesByType = await CertificateTemplate.aggregate([
       { $group: { _id: '$certificateType', count: { $sum: 1 } } },
@@ -303,17 +357,36 @@ router.get('/stats/overview', adminAuth, async (req, res) => {
       .limit(5)
       .select('name certificateType usage');
     
+    // Chi tiết hiệu suất từng template
+    const templatePerformance = await CertificateTemplate.find({ isActive: true })
+      .select('name certificateType usage')
+      .sort({ 'usage.totalProcessed': -1 });
+    
     res.json({
       success: true,
       data: {
         overview: {
           totalTemplates,
           activeTemplates,
-          inactiveTemplates: totalTemplates - activeTemplates
+          inactiveTemplates: totalTemplates - activeTemplates,
+          totalProcessed: stats.totalProcessed,
+          totalSuccessful: stats.totalSuccessful,
+          successRate,
+          averageConfidence: Math.round(stats.avgConfidence || 0)
         },
         templatesByType,
         mostUsedTemplates,
-        mostAccurateTemplates
+        mostAccurateTemplates,
+        templatePerformance: templatePerformance.map(t => ({
+          name: t.name,
+          certificateType: t.certificateType,
+          processed: t.usage.totalProcessed,
+          successful: t.usage.successfulExtractions,
+          confidence: Math.round(t.usage.averageConfidence || 0),
+          successRate: t.usage.totalProcessed > 0 
+            ? Math.round((t.usage.successfulExtractions / t.usage.totalProcessed) * 100)
+            : 0
+        }))
       }
     });
   } catch (error) {

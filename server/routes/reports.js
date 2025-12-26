@@ -195,9 +195,44 @@ router.get('/performance', adminAuth, async (req, res) => {
     ]);
     
     // Thống kê template performance
-    const templatePerformance = await CertificateTemplate.find()
-      .select('name certificateType usage')
-      .sort({ 'usage.averageConfidence': -1 });
+    const templatePerformance = await CertificateTemplate.find({ isActive: true })
+      .select('name certificateType usage isActive')
+      .sort({ 'usage.totalProcessed': -1 });
+    
+    // Format template performance data
+    const formattedTemplatePerformance = templatePerformance.map(t => ({
+      id: t._id,
+      name: t.name,
+      certificateType: t.certificateType,
+      processed: t.usage.totalProcessed || 0,
+      successful: t.usage.successfulExtractions || 0,
+      confidence: Math.round(t.usage.averageConfidence || 0),
+      successRate: t.usage.totalProcessed > 0 
+        ? Math.round((t.usage.successfulExtractions / t.usage.totalProcessed) * 100)
+        : 0,
+      lastUsed: t.usage.lastUsed
+    }));
+    
+    // Thống kê tổng quan templates
+    const totalTemplates = await CertificateTemplate.countDocuments();
+    const activeTemplates = await CertificateTemplate.countDocuments({ isActive: true });
+    
+    const templateUsageStats = await CertificateTemplate.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalProcessed: { $sum: '$usage.totalProcessed' },
+          totalSuccessful: { $sum: '$usage.successfulExtractions' },
+          avgConfidence: { $avg: '$usage.averageConfidence' }
+        }
+      }
+    ]);
+    
+    const templateStats = templateUsageStats[0] || {
+      totalProcessed: 0,
+      totalSuccessful: 0,
+      avgConfidence: 0
+    };
     
     res.json({
       success: true,
@@ -215,7 +250,18 @@ router.get('/performance', adminAuth, async (req, res) => {
         },
         errors: errorStats,
         extractionMethods: extractionMethodStats,
-        templatePerformance
+        templatePerformance: formattedTemplatePerformance,
+        templateOverview: {
+          totalTemplates,
+          activeTemplates,
+          inactiveTemplates: totalTemplates - activeTemplates,
+          totalProcessed: templateStats.totalProcessed,
+          totalSuccessful: templateStats.totalSuccessful,
+          averageConfidence: Math.round(templateStats.avgConfidence || 0),
+          successRate: templateStats.totalProcessed > 0 
+            ? Math.round((templateStats.totalSuccessful / templateStats.totalProcessed) * 100)
+            : 0
+        }
       }
     });
   } catch (error) {

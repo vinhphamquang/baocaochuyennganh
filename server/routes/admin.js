@@ -1,7 +1,10 @@
 const express = require('express')
+const jwt = require('jsonwebtoken')
 const User = require('../models/User')
 const Certificate = require('../models/Certificate')
+const PasswordResetRequest = require('../models/PasswordResetRequest')
 const { adminAuth } = require('../middleware/auth')
+const SystemLogger = require('../utils/logger')
 
 const router = express.Router()
 
@@ -225,6 +228,173 @@ router.get('/certificates', adminAuth, async (req, res) => {
   } catch (error) {
     console.error('Get all certificates error:', error)
     res.status(500).json({ message: 'Lỗi khi lấy danh sách chứng chỉ' })
+  }
+})
+
+// Get all password reset requests (admin only)
+router.get('/password-reset-requests', adminAuth, async (req, res) => {
+  try {
+    const { status } = req.query
+    
+    let query = {}
+    if (status) {
+      query.status = status
+    }
+
+    const requests = await PasswordResetRequest.find(query)
+      .populate('userId', 'fullName email')
+      .populate('reviewedBy', 'fullName email')
+      .sort({ createdAt: -1 })
+
+    res.json({ 
+      success: true,
+      requests,
+      total: requests.length
+    })
+  } catch (error) {
+    console.error('Get password reset requests error:', error)
+    res.status(500).json({ message: 'Lỗi khi lấy danh sách yêu cầu' })
+  }
+})
+
+// Approve password reset request (admin only)
+router.post('/password-reset-requests/:id/approve', adminAuth, async (req, res) => {
+  try {
+    const { reviewNote } = req.body
+    const requestId = req.params.id
+
+    const request = await PasswordResetRequest.findById(requestId)
+      .populate('userId', 'fullName email')
+
+    if (!request) {
+      return res.status(404).json({ message: 'Không tìm thấy yêu cầu' })
+    }
+
+    if (request.status !== 'pending') {
+      return res.status(400).json({ message: 'Yêu cầu đã được xử lý trước đó' })
+    }
+
+    // Generate reset token
+    const resetToken = jwt.sign(
+      { userId: request.userId._id, purpose: 'reset-password', requestId: request._id },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '24h' }
+    )
+
+    // Update request
+    request.status = 'approved'
+    request.reviewedAt = new Date()
+    request.reviewedBy = req.userId
+    request.reviewNote = reviewNote || 'Đã phê duyệt'
+    request.resetToken = resetToken
+    request.tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+
+    await request.save()
+
+    // Log approval
+    await SystemLogger.log({
+      type: 'password_reset_approved',
+      message: `Admin phê duyệt yêu cầu đặt lại mật khẩu cho ${request.fullName}`,
+      adminId: req.userId,
+      adminName: req.user?.fullName || 'Admin',
+      targetUserId: request.userId._id,
+      targetUserName: request.fullName,
+      targetUserEmail: request.email,
+      details: {
+        requestId: request._id,
+        reviewNote: reviewNote || 'Đã phê duyệt',
+        tokenExpiresAt: request.tokenExpiresAt
+      },
+      severity: 'medium'
+    })
+
+    // Generate reset link
+    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`
+
+    res.json({ 
+      success: true,
+      message: 'Đã phê duyệt yêu cầu đặt lại mật khẩu',
+      request,
+      resetLink
+    })
+  } catch (error) {
+    console.error('Approve password reset error:', error)
+    res.status(500).json({ message: 'Lỗi khi phê duyệt yêu cầu' })
+  }
+})
+
+// Reject password reset request (admin only)
+router.post('/password-reset-requests/:id/reject', adminAuth, async (req, res) => {
+  try {
+    const { reviewNote } = req.body
+    const requestId = req.params.id
+
+    const request = await PasswordResetRequest.findById(requestId)
+      .populate('userId', 'fullName email')
+
+    if (!request) {
+      return res.status(404).json({ message: 'Không tìm thấy yêu cầu' })
+    }
+
+    if (request.status !== 'pending') {
+      return res.status(400).json({ message: 'Yêu cầu đã được xử lý trước đó' })
+    }
+
+    // Update request
+    request.status = 'rejected'
+    request.reviewedAt = new Date()
+    request.reviewedBy = req.userId
+    request.reviewNote = reviewNote || 'Từ chối yêu cầu'
+
+    await request.save()
+
+    // Log rejection
+    await SystemLogger.log({
+      type: 'password_reset_rejected',
+      message: `Admin từ chối yêu cầu đặt lại mật khẩu cho ${request.fullName}`,
+      adminId: req.userId,
+      adminName: req.user?.fullName || 'Admin',
+      targetUserId: request.userId._id,
+      targetUserName: request.fullName,
+      targetUserEmail: request.email,
+      details: {
+        requestId: request._id,
+        reviewNote: reviewNote || 'Từ chối yêu cầu'
+      },
+      severity: 'low'
+    })
+
+    res.json({ 
+      success: true,
+      message: 'Đã từ chối yêu cầu đặt lại mật khẩu',
+      request
+    })
+  } catch (error) {
+    console.error('Reject password reset error:', error)
+    res.status(500).json({ message: 'Lỗi khi từ chối yêu cầu' })
+  }
+})
+
+// Get password reset request statistics
+router.get('/password-reset-requests/stats', adminAuth, async (req, res) => {
+  try {
+    const total = await PasswordResetRequest.countDocuments()
+    const pending = await PasswordResetRequest.countDocuments({ status: 'pending' })
+    const approved = await PasswordResetRequest.countDocuments({ status: 'approved' })
+    const rejected = await PasswordResetRequest.countDocuments({ status: 'rejected' })
+
+    res.json({
+      success: true,
+      stats: {
+        total,
+        pending,
+        approved,
+        rejected
+      }
+    })
+  } catch (error) {
+    console.error('Get password reset stats error:', error)
+    res.status(500).json({ message: 'Lỗi khi lấy thống kê' })
   }
 })
 

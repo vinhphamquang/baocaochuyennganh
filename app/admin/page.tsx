@@ -990,6 +990,58 @@ export default function AdminDashboard() {
               </div>
             </div>
 
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <a
+                href="/admin/reports"
+                className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow border-l-4 border-blue-500"
+              >
+                <div className="flex items-center">
+                  <div className="bg-blue-100 rounded-full p-3 mr-4">
+                    <ChartBarIcon className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Báo cáo chi tiết</h3>
+                    <p className="text-sm text-gray-500">Xem thống kê và hiệu suất</p>
+                  </div>
+                </div>
+              </a>
+
+              <a
+                href="/admin/password-reset"
+                className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow border-l-4 border-orange-500"
+              >
+                <div className="flex items-center">
+                  <div className="bg-orange-100 rounded-full p-3 mr-4">
+                    <svg className="h-6 w-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Đặt lại mật khẩu</h3>
+                    <p className="text-sm text-gray-500">Quản lý yêu cầu người dùng</p>
+                  </div>
+                </div>
+              </a>
+
+              <button
+                onClick={fetchData}
+                className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow border-l-4 border-green-500 text-left"
+              >
+                <div className="flex items-center">
+                  <div className="bg-green-100 rounded-full p-3 mr-4">
+                    <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Làm mới dữ liệu</h3>
+                    <p className="text-sm text-gray-500">Cập nhật thông tin mới nhất</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+
             {/* Recent Activity */}
             <div className="bg-white shadow-lg rounded-xl overflow-hidden">
               <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">

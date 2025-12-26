@@ -1,6 +1,7 @@
 const express = require('express')
 const jwt = require('jsonwebtoken')
 const User = require('../models/User')
+const PasswordResetRequest = require('../models/PasswordResetRequest')
 const { auth } = require('../middleware/auth')
 const { sendResetPasswordEmail, sendWelcomeEmail } = require('../utils/email')
 const SystemLogger = require('../utils/logger')
@@ -227,10 +228,10 @@ router.put('/change-password', auth, async (req, res) => {
   }
 })
 
-// Forgot password - Send reset link
+// Forgot password - Create reset request for admin approval
 router.post('/forgot-password', async (req, res) => {
   try {
-    const { email } = req.body
+    const { email, reason } = req.body
 
     if (!email) {
       return res.status(400).json({ message: 'Vui lòng nhập email' })
@@ -240,26 +241,53 @@ router.post('/forgot-password', async (req, res) => {
     const user = await User.findOne({ email })
     if (!user) {
       // Don't reveal if email exists or not for security
-      return res.json({ message: 'Nếu email tồn tại, link đặt lại mật khẩu đã được gửi' })
+      return res.json({ 
+        message: 'Nếu email tồn tại, yêu cầu đặt lại mật khẩu đã được gửi đến admin',
+        success: true
+      })
     }
 
-    // Generate reset token (in production, use crypto.randomBytes)
-    const resetToken = jwt.sign(
-      { userId: user._id, purpose: 'reset-password' },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '1h' }
-    )
+    // Check if there's already a pending request
+    const existingRequest = await PasswordResetRequest.findOne({
+      userId: user._id,
+      status: 'pending'
+    })
 
-    // In production, send email with reset link
-    // For now, just log the link
-    const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`
-    console.log('Reset password link:', resetLink)
-    console.log('For user:', email)
+    if (existingRequest) {
+      return res.json({ 
+        message: 'Bạn đã có yêu cầu đang chờ xử lý. Vui lòng đợi admin phê duyệt.',
+        success: true
+      })
+    }
+
+    // Create password reset request
+    const resetRequest = new PasswordResetRequest({
+      userId: user._id,
+      email: user.email,
+      fullName: user.fullName,
+      reason: reason || 'Quên mật khẩu',
+      status: 'pending'
+    })
+
+    await resetRequest.save()
+
+    // Log yêu cầu đặt lại mật khẩu
+    await SystemLogger.log({
+      type: 'password_reset_request',
+      message: `Yêu cầu đặt lại mật khẩu từ ${user.fullName}`,
+      userId: user._id,
+      userName: user.fullName,
+      userEmail: user.email,
+      details: {
+        reason: reason || 'Quên mật khẩu',
+        requestId: resetRequest._id
+      },
+      severity: 'medium'
+    })
 
     res.json({ 
-      message: 'Link đặt lại mật khẩu đã được gửi đến email của bạn',
-      // Remove this in production
-      resetLink: resetLink
+      message: 'Yêu cầu đặt lại mật khẩu đã được gửi đến admin. Bạn sẽ nhận được thông báo khi được phê duyệt.',
+      success: true
     })
   } catch (error) {
     console.error('Forgot password error:', error)
