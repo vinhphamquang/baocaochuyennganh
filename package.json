@@ -1,38 +1,40 @@
 {
-  "name": "certificate-extraction-website",
+  "name": "certificate-extraction-system",
   "version": "1.0.0",
-  "description": "Website trích xuất thông tin chứng chỉ ngoại ngữ",
+  "description": "Hệ thống trích xuất thông tin chứng chỉ ngoại ngữ",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "server": "cd server && npm run dev"
-  },
-  "dependencies": {
-    "@headlessui/react": "^1.7.17",
-    "@heroicons/react": "^2.0.18",
-    "autoprefixer": "^10.4.16",
-    "axios": "^1.6.0",
-    "js-cookie": "^3.0.5",
-    "next": "14.0.0",
-    "postcss": "^8.4.31",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-dropzone": "^14.2.3",
-    "react-hook-form": "^7.47.0",
-    "react-hot-toast": "^2.4.1",
-    "tailwindcss": "^3.3.0",
-    "tesseract.js": "^6.0.1"
+    "install:frontend": "cd frontend && npm install",
+    "install:backend": "cd backend && npm install",
+    "install:all": "npm run install:frontend && npm run install:backend",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && echo 'Backend does not require build'",
+    "build": "npm run build:frontend && npm run build:backend",
+    "start:frontend": "cd frontend && npm start",
+    "start:backend": "cd backend && npm start",
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "test:frontend": "cd frontend && npm test",
+    "test:backend": "cd backend && npm test",
+    "test": "npm run test:backend && npm run test:frontend",
+    "lint:frontend": "cd frontend && npm run lint",
+    "lint:backend": "cd backend && npm run lint",
+    "lint": "npm run lint:frontend && npm run lint:backend"
   },
   "devDependencies": {
-    "@types/js-cookie": "^3.0.6",
-    "@types/node": "^20.8.0",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
-    "eslint": "^8.51.0",
-    "eslint-config-next": "14.0.0",
-    "typescript": "^5.2.2"
-  }
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "certificate",
+    "extraction",
+    "ocr",
+    "ai",
+    "nextjs",
+    "express",
+    "mongodb"
+  ],
+  "author": "Certificate Extraction Team",
+  "license": "MIT"
 }

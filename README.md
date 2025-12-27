@@ -1,20 +1,55 @@
-# 🎓 Website Trích Xuất Thông Tin Chứng Chỉ Ngoại Ngữ
+# 🎓 Certificate Extraction System
 
-Hệ thống tự động trích xuất thông tin từ chứng chỉ ngoại ngữ (IELTS, TOEIC, TOEFL, VSTEP) sử dụng công nghệ OCR (Tesseract.js).
+Hệ thống tự động trích xuất thông tin từ chứng chỉ ngoại ngữ (IELTS, TOEIC, TOEFL, VSTEP) sử dụng công nghệ OCR và AI.
 
-## Tính năng chính
+## 📁 Cấu trúc dự án mới
+
+```
+certificate-extraction-system/
+├── frontend/          # Next.js Frontend Application (Port 3000)
+├── backend/           # Express.js Backend API (Port 5000)
+├── README.md          # File này
+└── README-STRUCTURE.md  # Chi tiết cấu trúc
+```
+
+**Lưu ý**: Dự án đã được tổ chức lại để tách biệt rõ ràng frontend và backend, giúp dễ dàng phát triển, bảo trì và deploy.
+
+## 🚀 Hướng dẫn cài đặt và chạy
+
+### 1️⃣ Frontend (Next.js)
+```bash
+cd frontend
+npm install
+npm run dev
+```
+✅ Frontend chạy tại: **http://localhost:3000**
+
+### 2️⃣ Backend (Express.js)
+```bash
+cd backend
+npm install
+npm run dev
+```
+✅ Backend chạy tại: **http://localhost:5000**
+
+## 📖 Tài liệu chi tiết
+
+- 📘 [Frontend Documentation](./frontend/README.md) - Chi tiết về Next.js app
+- 📗 [Backend Documentation](./backend/README.md) - Chi tiết về Express API
+- 📙 [Project Structure](./README-STRUCTURE.md) - Cấu trúc tổng quan
+
+## ✨ Tính năng chính
 
 ### Người dùng (User)
 - ✅ Đăng ký/Đăng nhập tài khoản
 - ✅ Tải lên hình ảnh chứng chỉ (JPG, PNG, PDF)
-- ✅ Trích xuất thông tin tự động bằng OCR
+- ✅ Trích xuất thông tin tự động bằng OCR + AI
 - ✅ Xem và chỉnh sửa kết quả trích xuất
 - ✅ Xuất dữ liệu ra Excel, CSV, JSON
 - ✅ Lịch sử trích xuất cá nhân
 - ✅ Dashboard theo dõi hoạt động
 
 ### Quản trị viên (Admin)
-- ✅ **Tài khoản duy nhất**: Chỉ 1 admin để đảm bảo bảo mật
 - ✅ Quản lý người dùng (xem, khóa, xóa tài khoản)
 - ✅ Quản lý chứng chỉ (theo dõi xử lý, xóa nếu cần)
 - ✅ Quản lý bình luận (duyệt, xóa, báo cáo vi phạm)
@@ -23,233 +58,49 @@ Hệ thống tự động trích xuất thông tin từ chứng chỉ ngoại ng
 - ✅ Dashboard tổng quan với real-time data
 
 ### Hệ thống OCR - AI
-- ✅ Nhận dạng văn bản từ hình ảnh
-- ✅ Trích xuất các trường thông tin:
-  - Họ tên thí sinh
-  - Ngày sinh
-  - Loại chứng chỉ
-  - Số chứng chỉ
-  - Ngày thi/Ngày cấp
-  - Điểm số chi tiết
-  - Đơn vị cấp chứng chỉ
+- ✅ Nhận dạng văn bản từ hình ảnh (Tesseract.js)
+- ✅ Trích xuất thông minh bằng Google Gemini AI
+- ✅ Hỗ trợ nhiều loại chứng chỉ: IELTS, TOEIC, TOEFL, VSTEP
+- ✅ Xử lý ảnh chất lượng thấp với AI enhancement
+- ✅ Validation và correction tự động
 
-## Công nghệ sử dụng
+## 🛠️ Công nghệ sử dụng
 
 ### Frontend
-- **Next.js 14** - React framework
-- **TypeScript** - Type safety
-- **Tailwind CSS** - Styling
-- **Headless UI** - UI components
-- **React Hook Form** - Form handling
-- **React Dropzone** - File upload
-- **React Hot Toast** - Notifications
+- Next.js 14 (App Router), TypeScript, Tailwind CSS
+- React Hook Form, Axios, Tesseract.js
+- Headless UI, Heroicons, React Hot Toast
 
 ### Backend
-- **Node.js** - Runtime environment
-- **Express.js** - Web framework
-- **MongoDB** - Database
-- **Mongoose** - ODM
-- **JWT** - Authentication
+- Express.js, MongoDB (Mongoose), JWT Authentication
+- Google Gemini AI, Tesseract.js OCR
+- Nodemailer, Multer, Helmet, CORS
 
-### OCR & AI
-- **Tesseract.js** - OCR engine (nhận dạng văn bản)
-- **Natural Language Processing** - Trích xuất thông tin thông minh
-- **Regex Patterns** - Parse dữ liệu chứng chỉ
-- **Multer** - File upload handling
-- **Bcrypt** - Password hashing
+## 🔧 Cấu hình môi trường
 
-### Bảo mật
-- **Helmet** - Security headers
-- **CORS** - Cross-origin requests
-- **Rate Limiting** - API protection
-- **JWT Authentication** - Secure auth
-- **Password Hashing** - Bcrypt
-
-## Cài đặt và chạy dự án
-
-### Yêu cầu hệ thống
-- Node.js 18+
-- MongoDB
-- npm hoặc yarn
-
-### Cài đặt Frontend
-
-```bash
-# Cài đặt dependencies
-npm install
-
-# Chạy development server
-npm run dev
-
-# Build production
-npm run build
-npm start
-```
-
-### Cài đặt Backend
-
-```bash
-# Di chuyển vào thư mục server
-cd server
-
-# Cài đặt dependencies
-npm install
-
-# Tạo file .env
-cp .env.example .env
-
-# Chỉnh sửa file .env với thông tin của bạn
-# MONGODB_URI=mongodb://localhost:27017/certificate-extraction
-# JWT_SECRET=your-secret-key
-# CLIENT_URL=http://localhost:3000
-
-# Chạy development server
-npm run dev
-
-# Chạy production
-npm start
-```
-
-### Biến môi trường (.env)
-
+### Frontend (.env.local)
 ```env
-# Database
-MONGODB_URI=mongodb://localhost:27017/certificate-extraction
+NEXT_PUBLIC_API_URL=http://localhost:5000
+```
 
-# JWT
-JWT_SECRET=your-super-secret-jwt-key
-
-# Client URL
-CLIENT_URL=http://localhost:3000
-
-# Server
+### Backend (.env)
+```env
 PORT=5000
-NODE_ENV=development
+MONGODB_URI=mongodb://localhost:27017/certificate-extraction
+JWT_SECRET=your_super_secret_jwt_key
+GEMINI_API_KEY=your_gemini_api_key
 
-# OCR API (tùy chọn)
-OCR_API_KEY=your-ocr-api-key
-OCR_API_URL=https://api.ocr-service.com
+# Email Configuration
+EMAIL_USER=your_email@gmail.com
+EMAIL_PASS=your_app_password
+EMAIL_FROM=noreply@certificateextraction.com
+
+# Frontend URL
+FRONTEND_URL=http://localhost:3000
 ```
-
-## Cấu trúc dự án
-
-```
-certificate-extraction-website/
-├── app/                          # Next.js app directory
-│   ├── components/              # React components
-│   │   ├── Header.tsx
-│   │   ├── Hero.tsx
-│   │   ├── UploadSection.tsx
-│   │   ├── Features.tsx
-│   │   ├── AuthModal.tsx
-│   │   └── Footer.tsx
-│   ├── dashboard/               # User dashboard
-│   ├── admin/                   # Admin dashboard
-│   ├── globals.css              # Global styles
-│   ├── layout.tsx               # Root layout
-│   └── page.tsx                 # Home page
-├── server/                      # Backend server
-│   ├── models/                  # Database models
-│   │   ├── User.js
-│   │   └── Certificate.js
-│   ├── routes/                  # API routes
-│   │   ├── auth.js
-│   │   ├── certificates.js
-│   │   └── admin.js
-│   ├── middleware/              # Custom middleware
-│   │   └── auth.js
-│   ├── package.json
-│   └── server.js
-├── public/                      # Static files
-├── package.json
-├── tailwind.config.js
-├── next.config.js
-└── README.md
-```
-
-## API Endpoints
-
-### Authentication
-- `POST /api/auth/register` - Đăng ký
-- `POST /api/auth/login` - Đăng nhập
-- `GET /api/auth/me` - Lấy thông tin user
-
-### Certificates
-- `POST /api/certificates/upload` - Tải lên chứng chỉ
-- `GET /api/certificates` - Lấy danh sách chứng chỉ
-- `GET /api/certificates/:id` - Lấy chi tiết chứng chỉ
-- `PUT /api/certificates/:id` - Cập nhật thông tin
-- `DELETE /api/certificates/:id` - Xóa chứng chỉ
-
-### Admin (Chỉ 1 tài khoản duy nhất)
-- `GET /api/admin/users` - Quản lý người dùng
-- `PUT /api/admin/users/:id/status` - Khóa/mở khóa tài khoản
-- `DELETE /api/admin/users/:id` - Xóa tài khoản user
-- `GET /api/admin/certificates` - Xem tất cả chứng chỉ
-- `GET /api/admin/statistics` - Thống kê hệ thống
-- `GET /api/admin/logs` - Nhật ký hoạt động
-- `GET /api/comments/admin/all` - Quản lý bình luận
-
-## Tính năng nổi bật
-
-### 🎯 Độ chính xác cao
-- Sử dụng OCR tiên tiến với độ chính xác 99.5%
-- AI nhận dạng thông minh các loại chứng chỉ khác nhau
-
-### ⚡ Xử lý nhanh chóng
-- Thời gian xử lý dưới 30 giây
-- Hỗ trợ xử lý batch nhiều file
-
-### 🔒 Bảo mật tuyệt đối
-- Mã hóa dữ liệu end-to-end
-- Tự động xóa file sau khi xử lý
-- Tuân thủ GDPR
-
-### 🌐 Đa định dạng
-- Hỗ trợ JPG, PNG, PDF
-- Kích thước file lên đến 10MB
-- Chất lượng hình ảnh linh hoạt
-
-### 📊 Thống kê chi tiết
-- Dashboard theo dõi hoạt động
-- Báo cáo xu hướng điểm số
-- Lịch sử xử lý đầy đủ
-
-## Roadmap
-
-### Phase 1 (Hiện tại)
-- ✅ Giao diện cơ bản
-- ✅ Upload và OCR mock
-- ✅ Authentication
-- ✅ Dashboard user/admin
-
-### Phase 2 (Tiếp theo)
-- 🔄 Tích hợp OCR API thực tế
-- 🔄 Cải thiện độ chính xác AI
-- 🔄 Thêm loại chứng chỉ mới
-- 🔄 Mobile app
-
-### Phase 3 (Tương lai)
-- 📋 API cho third-party
-- 📋 Bulk processing
-- 📋 Advanced analytics
-- 📋 Multi-language support
-
-## Đóng góp
-
-1. Fork dự án
-2. Tạo feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Tạo Pull Request
-
-## License
-
-Distributed under the MIT License. See `LICENSE` for more information.
 
 ## 🔐 Truy cập Admin
 
-### Thông tin đăng nhập Admin
 ```
 📧 Email: admin@certificateextraction.com
 🔒 Mật khẩu: admin123456
@@ -258,28 +109,75 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ### Tạo tài khoản Admin (nếu cần)
 ```bash
-cd server
-node recreate-admin.js
+cd backend
+node create-test-user.js
 ```
 
-### Kiểm tra hệ thống Admin
-```bash
-cd server
-node check-admin.js
-```
+## 📊 API Endpoints
 
-⚠️ **Lưu ý bảo mật**: 
-- Chỉ có 1 tài khoản admin duy nhất
-- Không thể tạo admin mới qua giao diện
-- Vui lòng đổi mật khẩu sau lần đăng nhập đầu tiên
+### Authentication
+- `POST /api/auth/register` - Đăng ký
+- `POST /api/auth/login` - Đăng nhập
+- `POST /api/auth/forgot-password` - Quên mật khẩu
+- `POST /api/auth/reset-password` - Đặt lại mật khẩu
 
-📖 **Chi tiết**: Xem `ADMIN_LOGIN_GUIDE.md` để biết thêm thông tin
+### Certificates
+- `GET /api/certificates` - Lấy danh sách chứng chỉ
+- `POST /api/certificates` - Tạo chứng chỉ mới
+- `PUT /api/certificates/:id` - Cập nhật chứng chỉ
+- `DELETE /api/certificates/:id` - Xóa chứng chỉ
 
-## Liên hệ
+### Admin
+- `GET /api/admin/users` - Quản lý người dùng
+- `GET /api/admin/stats` - Thống kê hệ thống
+- `POST /api/admin/password-reset-requests` - Yêu cầu reset mật khẩu
+
+### AI OCR
+- `POST /api/ai-ocr/extract` - Trích xuất thông tin bằng AI
+
+## 🎯 Tính năng nổi bật
+
+- 🎯 **Độ chính xác cao**: OCR + AI với độ chính xác 99.5%
+- ⚡ **Xử lý nhanh**: Dưới 30 giây mỗi chứng chỉ
+- 🔒 **Bảo mật tuyệt đối**: JWT, encryption, rate limiting
+- 🌐 **Đa định dạng**: JPG, PNG, PDF (lên đến 10MB)
+- 📊 **Thống kê chi tiết**: Dashboard và analytics
+
+## 🗺️ Roadmap
+
+### Phase 1 (Hoàn thành)
+- ✅ Giao diện frontend hoàn chỉnh
+- ✅ Backend API với MongoDB
+- ✅ OCR + AI integration
+- ✅ Authentication & Authorization
+- ✅ Admin dashboard
+
+### Phase 2 (Đang phát triển)
+- 🔄 Mobile responsive optimization
+- 🔄 Batch processing
+- 🔄 Advanced analytics
+- 🔄 Multi-language support
+
+### Phase 3 (Tương lai)
+- 📋 Mobile app (React Native)
+- 📋 API cho third-party
+- 📋 Machine learning improvements
+- 📋 Cloud deployment
+
+## 🤝 Đóng góp
+
+1. Fork dự án
+2. Tạo feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to branch (`git push origin feature/AmazingFeature`)
+5. Tạo Pull Request
+
+## 📄 License
+
+Distributed under the MIT License.
+
+## 📞 Liên hệ
 
 - Email: support@certextract.com
 - Website: https://certextract.com
-- Documentation: https://docs.certextract.com#   b a o c a o c h u y e n n g a n h 
- 
- 
-
+- Documentation: https://docs.certextract.com
