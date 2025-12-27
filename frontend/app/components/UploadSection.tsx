@@ -8,7 +8,7 @@ import { processImage, OCRProgress } from '@/lib/ocr'
 import ProcessingStatus from './ProcessingStatus'
 import EditableExtractionForm from './EditableExtractionForm'
 import ImageQualityInfo from './ImageQualityInfo'
-import OCRDebugInfo from './OCRDebugInfo'
+import ValidationResults from './ValidationResults'
 
 interface ExtractedData {
   fullName: string
@@ -40,6 +40,7 @@ export default function UploadSection() {
   const [ocrProgress, setOcrProgress] = useState<OCRProgress | null>(null)
   const [formKey, setFormKey] = useState(0) // Key để force re-render
   const [showApiNotice, setShowApiNotice] = useState(true)
+  const [validationResult, setValidationResult] = useState<any>(null) // Lưu kết quả validation
 
   // Debug: Log khi extractedData thay đổi
   useEffect(() => {
@@ -68,6 +69,7 @@ export default function UploadSection() {
   const removeFile = () => {
     setFiles([])
     setExtractedData(null)
+    setValidationResult(null) // Reset validation result
   }
 
   // Validate image quality before OCR
@@ -187,12 +189,15 @@ export default function UploadSection() {
       setOcrProgress({ status: 'Đang xác thực dữ liệu với AI...', progress: 0.85 })
       
       const { validateCertificateData } = await import('@/lib/ocr-ai-validator')
-      const validationResult = validateCertificateData(ocrData)
+      const validationResultData = validateCertificateData(ocrData)
       
-      console.log('🔍 Kết quả validation:', validationResult)
+      console.log('🔍 Kết quả validation:', validationResultData)
+      
+      // Lưu validation result vào state
+      setValidationResult(validationResultData)
       
       // Use corrected data if available
-      const finalData = validationResult.correctedData || ocrData
+      const finalData = validationResultData.correctedData || ocrData
       
       // Kiểm tra xem có dữ liệu không
       const hasData = finalData.fullName || finalData.certificateNumber || finalData.certificateType
@@ -273,18 +278,18 @@ export default function UploadSection() {
       setExtractedData(mockData)
       
       // Hiển thị kết quả validation
-      if (validationResult.errors.length > 0) {
+      if (validationResultData.errors.length > 0) {
         toast.error(
           <div className="text-sm">
             <p className="font-semibold mb-2">⚠️ Phát hiện một số vấn đề:</p>
             <ul className="text-xs list-disc list-inside space-y-1">
-              {validationResult.errors.slice(0, 3).map((error, index) => (
+              {validationResultData.errors.slice(0, 3).map((error, index) => (
                 <li key={index}>{error}</li>
               ))}
             </ul>
-            {validationResult.suggestions.length > 0 && (
+            {validationResultData.suggestions.length > 0 && (
               <p className="text-xs mt-2 text-blue-600">
-                💡 {validationResult.suggestions.length} đề xuất cải thiện
+                💡 {validationResultData.suggestions.length} đề xuất cải thiện
               </p>
             )}
           </div>,
@@ -299,12 +304,12 @@ export default function UploadSection() {
           <div className="text-sm">
             <p className="font-semibold">✅ Trích xuất thành công!</p>
             <p className="text-xs mt-1">
-              Độ tin cậy: {Math.round(validationResult.confidence)}% | 
+              Độ tin cậy: {Math.round(validationResultData.confidence)}% | 
               Phương pháp: {finalData.extractionMethod || 'OCR'}
             </p>
-            {validationResult.suggestions.length > 0 && (
+            {validationResultData.suggestions.length > 0 && (
               <p className="text-xs mt-1 text-blue-600">
-                💡 {validationResult.suggestions.length} đề xuất tối ưu
+                💡 {validationResultData.suggestions.length} đề xuất tối ưu
               </p>
             )}
           </div>,
@@ -318,8 +323,8 @@ export default function UploadSection() {
       }
       
       // Log validation details
-      if (validationResult.suggestions.length > 0) {
-        console.log('💡 AI Suggestions:', validationResult.suggestions)
+      if (validationResultData.suggestions.length > 0) {
+        console.log('💡 AI Suggestions:', validationResultData.suggestions)
       }
       
     } catch (error) {
@@ -606,20 +611,22 @@ export default function UploadSection() {
           {/* Extracted Data with Editable Form */}
           {extractedData && (
             <div key={formKey} className="mt-12">
+              {/* Validation Results */}
+              {validationResult && (
+                <ValidationResults
+                  validationResult={validationResult}
+                  onApplyCorrections={(correctedData) => {
+                    setExtractedData({ ...extractedData, ...correctedData })
+                    toast.success('Đã áp dụng các sửa đổi từ AI!')
+                  }}
+                />
+              )}
+              
               {/* Image Quality Information */}
               <ImageQualityInfo
                 imageQuality={extractedData.imageQuality}
                 enhancementApplied={extractedData.enhancementApplied}
                 confidence={extractedData.confidence}
-                className="mb-6"
-              />
-              
-              {/* OCR Debug Information */}
-              <OCRDebugInfo
-                rawText={extractedData.rawText || ''}
-                confidence={extractedData.confidence}
-                extractionMethod={extractedData.extractionMethod}
-                processingTime={extractedData.processingTime}
                 className="mb-6"
               />
               
