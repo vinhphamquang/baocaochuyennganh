@@ -68,7 +68,7 @@ export default function Hero() {
             {/* CTA Buttons */}
             <div className="mt-16 flex items-center justify-center gap-x-6">
               <a 
-                href="#upload" 
+                href="/extract" 
                 className="group relative inline-flex items-center justify-center px-10 py-5 text-lg font-bold text-white bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 rounded-2xl shadow-2xl hover:shadow-cyan-500/25 transform hover:scale-105 transition-all duration-300 overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -77,7 +77,7 @@ export default function Hero() {
                 <div className="absolute inset-0 rounded-2xl bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </a>
               <a 
-                href="#features" 
+                href="/how-it-works" 
                 className="group inline-flex items-center text-lg font-semibold text-gray-300 hover:text-white transition-colors duration-300 border border-gray-600 hover:border-cyan-400 px-8 py-5 rounded-2xl backdrop-blur-sm"
               >
                 Tìm hiểu thêm 

@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { authAPI } from '@/lib/api'
 import Cookies from 'js-cookie'
+import TermsModal from './TermsModal'
 
 interface AuthModalProps {
   isOpen: boolean
@@ -28,6 +29,7 @@ interface RegisterForm {
 
 export default function AuthModal({ isOpen, onClose, mode, onSuccess }: AuthModalProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [showTermsModal, setShowTermsModal] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   
@@ -301,9 +303,16 @@ export default function AuthModal({ isOpen, onClose, mode, onSuccess }: AuthModa
                     />
                     <label htmlFor="agree-terms" className="ml-2 block text-sm text-gray-900">
                       Tôi đồng ý với{' '}
-                      <a href="#" className="text-primary-600 hover:text-primary-500">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setShowTermsModal(true)
+                        }}
+                        className="text-primary-600 hover:text-primary-500 underline"
+                      >
                         Điều khoản sử dụng
-                      </a>
+                      </button>
                     </label>
                   </div>
                   
@@ -320,6 +329,9 @@ export default function AuthModal({ isOpen, onClose, mode, onSuccess }: AuthModa
           </div>
         </div>
       </div>
+
+      {/* Terms Modal */}
+      <TermsModal isOpen={showTermsModal} onClose={() => setShowTermsModal(false)} />
     </div>
   )
 }
