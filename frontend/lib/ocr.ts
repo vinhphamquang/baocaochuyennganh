@@ -1,5 +1,6 @@
 import Tesseract from 'tesseract.js';
 import { enhancedOCR } from './ocr-enhanced';
+import { detectCertificate, DetectionResult } from './certificate-detector';
 
 export interface OCRProgress {
   status: string;
@@ -24,6 +25,7 @@ export interface ExtractedData {
   imageQuality?: 'low' | 'medium' | 'high';
   enhancementApplied?: string[];
   confidence?: number;
+  detectionResult?: DetectionResult;  // Thêm kết quả detection
 }
 
 /**
@@ -435,13 +437,16 @@ function validateCertNumber(certNum: string): boolean {
 }
 
 /**
- * Xử lý đầy đủ: OCR + Parse với tự động phát hiện chất lượng ảnh
+ * Xử lý đầy đủ: Detection + OCR + Parse với tự động phát hiện chất lượng ảnh
  */
 export async function processImage(
   imageFile: File,
   onProgress?: (progress: OCRProgress) => void
 ): Promise<Partial<ExtractedData>> {
   try {
+    // Bước 0: Phát hiện xem có phải chứng chỉ không (quick check)
+    onProgress?.({ status: 'Đang phát hiện loại ảnh...', progress: 0.02 });
+    
     // Bước 1: Phân tích chất lượng ảnh
     onProgress?.({ status: 'Đang phân tích chất lượng ảnh...', progress: 0.05 });
     
@@ -455,6 +460,29 @@ export async function processImage(
       // Sử dụng hệ thống Enhanced OCR
       const enhancedResult = await enhancedOCR(imageFile);
       
+      // Bước 3: Phát hiện chứng chỉ với text đã trích xuất
+      onProgress?.({ status: 'Đang xác thực chứng chỉ...', progress: 0.85 });
+      const detectionResult = await detectCertificate(imageFile, enhancedResult.rawText);
+      
+      // Kiểm tra xem có phải chứng chỉ không
+      if (!detectionResult.isCertificate) {
+        console.warn('⚠️ Ảnh không phải là chứng chỉ:', detectionResult.reasons);
+        return {
+          fullName: '',
+          dateOfBirth: '',
+          certificateNumber: '',
+          examDate: '',
+          issueDate: '',
+          scores: {},
+          certificateType: '',
+          rawText: enhancedResult.rawText || '',
+          imageQuality: imageAnalysis.quality,
+          enhancementApplied: ['Enhanced OCR', 'Certificate Detection'],
+          confidence: 0,
+          detectionResult: detectionResult
+        };
+      }
+      
       // Convert sang format cũ để tương thích
       return {
         fullName: enhancedResult.fullName || '',
@@ -463,11 +491,12 @@ export async function processImage(
         examDate: enhancedResult.examDate || '',
         issueDate: enhancedResult.issueDate || '',
         scores: enhancedResult.scores || {},
-        certificateType: enhancedResult.certificateType || '',
+        certificateType: detectionResult.certificateType || enhancedResult.certificateType || '',
         rawText: enhancedResult.rawText || '',
         imageQuality: (enhancedResult as ExtractedData).imageQuality || imageAnalysis.quality,
-        enhancementApplied: (enhancedResult as ExtractedData).enhancementApplied || ['Enhanced OCR'],
-        confidence: enhancedResult.confidence || 50
+        enhancementApplied: [...((enhancedResult as ExtractedData).enhancementApplied || ['Enhanced OCR']), 'Certificate Detection'],
+        confidence: enhancedResult.confidence || 50, // Confidence của extraction, không phải detection
+        detectionResult: detectionResult
       };
     } else {
       console.log('📝 Thử OCR tiêu chuẩn cho ảnh chất lượng cao');
@@ -479,6 +508,29 @@ export async function processImage(
           progress: 0.1 + progress.progress * 0.6
         });
       });
+      
+      // Bước 3.5: Phát hiện chứng chỉ với text đã trích xuất
+      onProgress?.({ status: 'Đang xác thực chứng chỉ...', progress: 0.75 });
+      const detectionResult = await detectCertificate(imageFile, extractedText);
+      
+      // Kiểm tra xem có phải chứng chỉ không
+      if (!detectionResult.isCertificate) {
+        console.warn('⚠️ Ảnh không phải là chứng chỉ:', detectionResult.reasons);
+        return {
+          fullName: '',
+          dateOfBirth: '',
+          certificateNumber: '',
+          examDate: '',
+          issueDate: '',
+          scores: {},
+          certificateType: '',
+          rawText: extractedText,
+          imageQuality: imageAnalysis.quality,
+          enhancementApplied: ['Standard OCR', 'Certificate Detection'],
+          confidence: 0,
+          detectionResult: detectionResult
+        };
+      }
       
       // Bước 4: Parse
       const parsedData = parseExtractedText(extractedText);
@@ -496,11 +548,12 @@ export async function processImage(
       if (standardConfidence < 40) {
         console.log('⚠️ OCR tiêu chuẩn không hiệu quả, chuyển sang OCR nâng cao...');
         console.log('📝 Raw text from standard OCR:', extractedText);
-        onProgress?.({ status: 'Chuyển sang OCR nâng cao để cải thiện kết quả...', progress: 0.7 });
+        onProgress?.({ status: 'Chuyển sang OCR nâng cao để cải thiện kết quả...', progress: 0.8 });
         
         // Fallback to Enhanced OCR
         const enhancedResult = await enhancedOCR(imageFile);
         
+        // Detection đã được thực hiện ở trên, chỉ cần dùng lại
         return {
           fullName: enhancedResult.fullName || '',
           dateOfBirth: enhancedResult.dateOfBirth || '',
@@ -508,20 +561,23 @@ export async function processImage(
           examDate: enhancedResult.examDate || '',
           issueDate: enhancedResult.issueDate || '',
           scores: enhancedResult.scores || {},
-          certificateType: enhancedResult.certificateType || '',
+          certificateType: detectionResult.certificateType || enhancedResult.certificateType || '',
           rawText: enhancedResult.rawText || '',
           imageQuality: (enhancedResult as ExtractedData).imageQuality || imageAnalysis.quality,
-          enhancementApplied: [...((enhancedResult as ExtractedData).enhancementApplied || []), 'Fallback from Standard OCR'],
-          confidence: enhancedResult.confidence || 50
+          enhancementApplied: [...((enhancedResult as ExtractedData).enhancementApplied || []), 'Fallback from Standard OCR', 'Certificate Detection'],
+          confidence: enhancedResult.confidence || 50, // Confidence của extraction
+          detectionResult: detectionResult
         };
       }
       
-      // Thêm thông tin chất lượng ảnh
+      // Thêm thông tin chất lượng ảnh và detection
       return {
         ...parsedData,
+        certificateType: detectionResult.certificateType || parsedData.certificateType || '',
         imageQuality: imageAnalysis.quality,
-        enhancementApplied: ['Standard OCR'],
-        confidence: standardConfidence
+        enhancementApplied: ['Standard OCR', 'Certificate Detection'],
+        confidence: standardConfidence, // Confidence của extraction
+        detectionResult: detectionResult
       };
     }
   } catch (error) {
@@ -533,6 +589,9 @@ export async function processImage(
       onProgress?.({ status: 'Thử phương án OCR nâng cao...', progress: 0.8 });
       const enhancedResult = await enhancedOCR(imageFile);
       
+      // Try detection
+      const detectionResult = await detectCertificate(imageFile, enhancedResult.rawText);
+      
       return {
         fullName: enhancedResult.fullName || '',
         dateOfBirth: enhancedResult.dateOfBirth || '',
@@ -540,11 +599,12 @@ export async function processImage(
         examDate: enhancedResult.examDate || '',
         issueDate: enhancedResult.issueDate || '',
         scores: enhancedResult.scores || {},
-        certificateType: enhancedResult.certificateType || '',
+        certificateType: detectionResult.certificateType || enhancedResult.certificateType || '',
         rawText: enhancedResult.rawText || '',
         imageQuality: (enhancedResult as ExtractedData).imageQuality || 'low',
-        enhancementApplied: [...((enhancedResult as ExtractedData).enhancementApplied || []), 'Emergency Fallback'],
-        confidence: enhancedResult.confidence || 30
+        enhancementApplied: [...((enhancedResult as ExtractedData).enhancementApplied || []), 'Emergency Fallback', 'Certificate Detection'],
+        confidence: enhancedResult.confidence || 30, // Confidence của extraction
+        detectionResult: detectionResult
       };
     } catch (fallbackError) {
       console.error('❌ Enhanced OCR fallback also failed:', fallbackError);

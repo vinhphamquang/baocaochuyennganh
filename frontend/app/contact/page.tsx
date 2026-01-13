@@ -17,9 +17,21 @@ export default function ContactPage() {
 
   useEffect(() => {
     const token = localStorage.getItem('token')
-    const user = localStorage.getItem('user')
-    if (token && user) {
+    const userStr = localStorage.getItem('user')
+    if (token && userStr) {
       setIsLoggedIn(true)
+      
+      // Tự động điền thông tin từ user đã đăng nhập
+      try {
+        const user = JSON.parse(userStr)
+        setFormData(prev => ({
+          ...prev,
+          name: user.fullName || user.name || '',
+          email: user.email || ''
+        }))
+      } catch (error) {
+        console.error('Error parsing user data:', error)
+      }
     }
   }, [])
 
@@ -96,6 +108,17 @@ export default function ContactPage() {
                 Gửi tin nhắn cho chúng tôi
               </h2>
               
+              {isLoggedIn && (
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                  <p className="text-sm text-blue-800 flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    Thông tin của bạn đã được tự động điền từ tài khoản
+                  </p>
+                </div>
+              )}
+              
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -106,8 +129,9 @@ export default function ContactPage() {
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 ${isLoggedIn ? 'bg-gray-50' : ''}`}
                       placeholder="Nguyễn Văn A"
+                      readOnly={isLoggedIn}
                       required
                     />
                   </div>
@@ -120,8 +144,9 @@ export default function ContactPage() {
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 ${isLoggedIn ? 'bg-gray-50' : ''}`}
                       placeholder="email@example.com"
+                      readOnly={isLoggedIn}
                       required
                     />
                   </div>

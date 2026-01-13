@@ -185,6 +185,47 @@ export default function UploadSection() {
 
       console.log('✅ Dữ liệu OCR nâng cao:', ocrData)
       
+      // Kiểm tra detection result trước
+      if (ocrData.detectionResult && !ocrData.detectionResult.isCertificate) {
+        console.warn('⚠️ Ảnh không phải chứng chỉ:', ocrData.detectionResult)
+        
+        toast.error(
+          <div className="text-sm">
+            <p className="font-semibold mb-2">❌ Ảnh không phải là chứng chỉ</p>
+            <p className="text-xs text-gray-600 mb-2">Lý do:</p>
+            <ul className="text-xs text-gray-600 list-disc list-inside space-y-1">
+              {ocrData.detectionResult.reasons.map((reason, index) => (
+                <li key={index}>{reason}</li>
+              ))}
+            </ul>
+            {ocrData.detectionResult.warnings.length > 0 && (
+              <>
+                <p className="text-xs text-orange-600 mt-2 mb-1">Cảnh báo:</p>
+                <ul className="text-xs text-orange-600 list-disc list-inside space-y-1">
+                  {ocrData.detectionResult.warnings.map((warning, index) => (
+                    <li key={index}>{warning}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+            <p className="text-xs text-blue-600 mt-3">
+              💡 Vui lòng upload ảnh chứng chỉ ngoại ngữ (IELTS, TOEIC, TOEFL, VSTEP, v.v.)
+            </p>
+          </div>,
+          { 
+            id: 'ocr',
+            duration: 10000,
+            style: {
+              maxWidth: '450px'
+            }
+          }
+        )
+        
+        setIsProcessing(false)
+        setOcrProgress(null)
+        return
+      }
+      
       // AI Validation và Post-processing
       setOcrProgress({ status: 'Đang xác thực dữ liệu với AI...', progress: 0.85 })
       
@@ -303,8 +344,14 @@ export default function UploadSection() {
         toast.success(
           <div className="text-sm">
             <p className="font-semibold">✅ Trích xuất thành công!</p>
+            {ocrData.detectionResult && (
+              <p className="text-xs mt-1 text-green-600">
+                🎯 Xác nhận chứng chỉ: {ocrData.detectionResult.certificateType || 'Chứng chỉ'} 
+                (độ tin cậy phát hiện: {Math.round(ocrData.detectionResult.confidence)}%)
+              </p>
+            )}
             <p className="text-xs mt-1">
-              Độ tin cậy: {Math.round(validationResultData.confidence)}% | 
+              Độ tin cậy trích xuất: {Math.round(validationResultData.confidence)}% | 
               Phương pháp: {finalData.extractionMethod || 'OCR'}
             </p>
             {validationResultData.suggestions.length > 0 && (
